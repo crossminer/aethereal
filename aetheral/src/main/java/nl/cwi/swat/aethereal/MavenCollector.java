@@ -8,7 +8,7 @@ import com.google.common.collect.Multimap;
 
 public interface MavenCollector {
 	/**
-	 * Collect all available versions of the given artifact on the remote repository
+	 * Collect all available versions of the given artifact
 	 * 
 	 * @param coordinates Version-free coordinates, i.e.
 	 *                    &lt;groupId&gt;:&lt;artifactId&gt;
@@ -16,13 +16,13 @@ public interface MavenCollector {
 	public List<Artifact> collectAvailableVersions(String coordinates);
 
 	/**
-	 * Collect all clients of the given artifact on the remote repository
+	 * Collect all clients of the given artifact
 	 */
 	public List<Artifact> collectClientsOf(Artifact artifact);
 
 	/**
-	 * Collect all clients of the given unversioned coordinate on the remote
-	 * repository (i.e. all clients of any version of the supplied artifact)
+	 * Collect all clients of the given unversioned coordinate (i.e. all clients of
+	 * any version of the supplied artifact)
 	 * 
 	 * @param coordinates Version-free coordinates, i.e.
 	 *                    &lt;groupId&gt;:&lt;artifactId&gt;
