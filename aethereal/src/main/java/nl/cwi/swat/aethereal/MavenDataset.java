@@ -1,5 +1,11 @@
 package nl.cwi.swat.aethereal;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -13,6 +19,7 @@ import com.google.common.collect.Multimap;
 public class MavenDataset {
 	private String coordinates;
 	private MavenCollector collector;
+	private AetherDownloader downloader = new AetherDownloader();
 	private List<Artifact> libraries;
 	private Multimap<Artifact, Artifact> links;
 
@@ -53,6 +60,31 @@ public class MavenDataset {
 		int min = libraries.stream().mapToInt(a -> links.get(a).size()).min().getAsInt();
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
+	}
+
+	public void download(String path) {
+		// Download libraries
+		downloader.downloadAllArtifactsTo(libraries, String.format("%s/%s", path, "libraries"));
+
+		// Download clients
+		downloader.downloadAllArtifactsTo(links.values(), String.format("%s/%s", path, "clients"));
+
+		// Serialize a simple csv with links between libraries and clients
+		Path csv = Paths.get(String.format("%s/%s", path, "links.csv"));
+		try {
+			Files.createDirectories(csv.getParent());
+
+			try (BufferedWriter writer = Files.newBufferedWriter(csv, Charset.forName("UTF-8"))) {
+				for (Artifact library : links.keySet())
+					for (Artifact client : links.get(library))
+						writer.write(String.format("%s,%s\n", library, client));
+			} catch (IOException e) {
+				logger.error("Couldn't write CSV", e);
+			}
+		} catch (IOException e) {
+			logger.error(e);
+		}
+
 	}
 
 	public static void main(String[] args) {

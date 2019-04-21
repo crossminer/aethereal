@@ -47,6 +47,12 @@ public class Main {
 				.builder("download")
 				.desc("Set this option to download all JARs locally")
 				.build())
+			.addOption(Option
+				.builder("downloadPath")
+				.hasArg()
+				.argName("path")
+				.desc("Relative path to where the dataset should be downloaded")
+				.build())
 			.addOptionGroup(method);
 
 		try {
@@ -62,7 +68,8 @@ public class Main {
 			dt.printStats();
 
 			if (cmd.hasOption("download")) {
-				// ...
+				String path = cmd.getOptionValue("downloadPath", "download");
+				dt.download(path);
 			}
 		} catch (ParseException e) {
 			logger.error(e.getMessage());
