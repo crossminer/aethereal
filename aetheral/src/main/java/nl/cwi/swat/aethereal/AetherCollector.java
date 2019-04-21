@@ -39,8 +39,7 @@ public class AetherCollector implements MavenCollector {
 
 		try {
 			VersionRangeResult rangeResult = system.resolveVersionRange(session, rangeRequest);
-			return rangeResult.getVersions().stream()
-					.map(v -> new DefaultArtifact(coordinates + ":" + v))
+			return rangeResult.getVersions().stream().map(v -> new DefaultArtifact(coordinates + ":" + v))
 					.collect(Collectors.toList());
 		} catch (VersionRangeResolutionException e) {
 			logger.error("Couldn't resolve version range", e);

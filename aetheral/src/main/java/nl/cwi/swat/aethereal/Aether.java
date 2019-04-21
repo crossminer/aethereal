@@ -26,13 +26,17 @@ public class Aether {
 		return locator.getService(RepositorySystem.class);
 	}
 
-	public static RepositorySystemSession newSession(RepositorySystem system) {
+	public static RepositorySystemSession newSession(RepositorySystem system, String repositoryPath) {
 		DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
 
-		LocalRepository localRepo = new LocalRepository(LOCAL_REPO);
-		session.setLocalRepositoryManager(system.newLocalRepositoryManager(session, localRepo));
+		LocalRepository repository = new LocalRepository(repositoryPath);
+		session.setLocalRepositoryManager(system.newLocalRepositoryManager(session, repository));
 
 		return session;
+	}
+
+	public static RepositorySystemSession newSession(RepositorySystem system) {
+		return newSession(system, LOCAL_REPO);
 	}
 
 	public static RemoteRepository newRemoteRepository() {

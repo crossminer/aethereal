@@ -26,14 +26,20 @@ public class AetherDownloader {
 		repository = Aether.newRemoteRepository();
 	}
 
-	public Artifact downloadArtifact(Artifact artifact) {
+	public Artifact downloadArtifactTo(Artifact artifact, String repositoryPath) {
 		ArtifactRequest request = new ArtifactRequest();
 		request.setArtifact(artifact);
 		request.addRepository(repository);
 
 		try {
 			logger.info("Downloading {}...", artifact);
-			ArtifactResult artifactResult = system.resolveArtifact(session, request);
+
+			ArtifactResult artifactResult;
+			if (repositoryPath != null)
+				artifactResult = system.resolveArtifact(Aether.newSession(system, repositoryPath), request);
+			else
+				artifactResult = system.resolveArtifact(session, request);
+
 			return artifactResult.getArtifact();
 		} catch (ArtifactResolutionException e) {
 			logger.error("Couldn't download {}", artifact, e);
@@ -41,9 +47,15 @@ public class AetherDownloader {
 		}
 	}
 
+	public Artifact downloadArtifact(Artifact artifact) {
+		return downloadArtifactTo(artifact, null);
+	}
+
 	public List<Artifact> downloadAllArtifacts(List<Artifact> list) {
-		return list.stream()
-				.map(a -> downloadArtifact(a))
-				.collect(Collectors.toList());
+		return list.stream().map(a -> downloadArtifact(a)).collect(Collectors.toList());
+	}
+
+	public List<Artifact> downloadAllArtifactsTo(List<Artifact> list, String repositoryPath) {
+		return list.stream().map(a -> downloadArtifactTo(a, repositoryPath)).collect(Collectors.toList());
 	}
 }

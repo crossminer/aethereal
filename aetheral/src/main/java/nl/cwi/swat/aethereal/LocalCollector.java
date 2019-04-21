@@ -43,6 +43,7 @@ public class LocalCollector implements MavenCollector {
 	public List<Artifact> collectAvailableVersions(String coordinates) {
 		List<Artifact> ret = new ArrayList<Artifact>();
 
+		logger.info("Looking for {} versions in {}", coordinates, DATASET_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
@@ -69,6 +70,7 @@ public class LocalCollector implements MavenCollector {
 	public List<Artifact> collectClientsOf(Artifact artifact) {
 		List<Artifact> ret = new ArrayList<Artifact>();
 
+		logger.info("Looking for {} clients in {}", artifact, DATASET_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
@@ -88,7 +90,7 @@ public class LocalCollector implements MavenCollector {
 			return null;
 		}
 	}
-	
+
 	private String toCoordinates(Artifact artifact) {
 		return artifact.getGroupId() + ":" + artifact.getArtifactId() + ":" + artifact.getVersion();
 	}
@@ -135,14 +137,16 @@ public class LocalCollector implements MavenCollector {
 
 	public static void main(String[] args) {
 		LocalCollector collector = new LocalCollector();
+		AetherDownloader downloader = new AetherDownloader();
 
 		List<Artifact> res = collector.collectAvailableVersions("org.sonarsource.sonarqube:sonar-plugin-api");
-		System.out.println(res);
-		System.out.println(res.size());
+		System.out.println(res.size() + " sonar JARs");
 
 		List<Artifact> res2 = collector
 				.collectClientsOf(new DefaultArtifact("org.sonarsource.sonarqube:sonar-plugin-api:6.3"));
-		System.out.println(res2);
-		System.out.println(res2.size());
+		System.out.println(res2.size() + " sonar clients");
+
+		downloader.downloadAllArtifactsTo(res, "sonar-jars");
+		downloader.downloadAllArtifactsTo(res2, "sonar-clients");
 	}
 }
