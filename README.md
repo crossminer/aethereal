@@ -15,5 +15,9 @@ usage: aethereal
 
 ## Examples
 
-`aethereal -local -groupId org.sonarsource.sonarqube -artifactId sonar-plugin-api`
+From Maven:
+
+```
+mvn exec:java -Dexec.mainClass="nl.cwi.swat.aethereal.Main" -Dexec.args="-local -download -groupId org.sonarsource.sonarqube -artifactId sonar-plugin-api"
+```
 
