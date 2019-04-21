@@ -87,5 +87,10 @@
 			<artifactId>guava</artifactId>
 			<version>27.1-jre</version>
 		</dependency>
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.11.3</version>
+		</dependency>
 	</dependencies>
 </project>
