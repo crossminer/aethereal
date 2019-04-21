@@ -12,14 +12,15 @@ import com.google.common.collect.Multimap;
 
 public class MavenDataset {
 	private String coordinates;
-	private LocalCollector collector = new LocalCollector();
+	private MavenCollector collector;
 	private List<Artifact> libraries;
 	private Multimap<Artifact, Artifact> links;
 
 	private static final Logger logger = LogManager.getLogger(MavenDataset.class);
 
-	public MavenDataset(String coordinates) {
+	public MavenDataset(String coordinates, MavenCollector collector) {
 		this.coordinates = coordinates;
+		this.collector = collector;
 	}
 
 	public void build() {
@@ -55,7 +56,7 @@ public class MavenDataset {
 	}
 
 	public static void main(String[] args) {
-		MavenDataset dt = new MavenDataset("org.sonarsource.sonarqube:sonar-plugin-api");
+		MavenDataset dt = new MavenDataset("org.sonarsource.sonarqube:sonar-plugin-api", new LocalCollector());
 		dt.build();
 		dt.printStats();
 	}
