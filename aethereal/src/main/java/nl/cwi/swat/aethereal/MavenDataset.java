@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -16,18 +17,23 @@ import org.eclipse.aether.artifact.Artifact;
 
 import com.google.common.collect.Multimap;
 
+import nl.cwi.swat.aethereal.rascal.RascalM3;
+
 public class MavenDataset {
 	private String coordinates;
+	private String downloadPath;
 	private MavenCollector collector;
 	private AetherDownloader downloader = new AetherDownloader();
+	private RascalM3 m3 = new RascalM3();
 	private List<Artifact> libraries;
 	private Multimap<Artifact, Artifact> links;
 
 	private static final Logger logger = LogManager.getLogger(MavenDataset.class);
 
-	public MavenDataset(String coordinates, MavenCollector collector) {
+	public MavenDataset(String coordinates, MavenCollector collector, String path) {
 		this.coordinates = coordinates;
 		this.collector = collector;
+		this.downloadPath = path;
 	}
 
 	public void build() {
@@ -62,15 +68,15 @@ public class MavenDataset {
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
 	}
 
-	public void download(String path) {
+	public void download() {
 		// Download libraries
-		downloader.downloadAllArtifactsTo(libraries, path + "/libraries");
+		downloader.downloadAllArtifactsTo(libraries, downloadPath + "/libraries");
 
 		// Download clients
-		downloader.downloadAllArtifactsTo(links.values(), path + "/clients");
+		downloader.downloadAllArtifactsTo(links.values(), downloadPath + "/clients");
 
 		// Serialize a simple csv with links between libraries and clients
-		Path csv = Paths.get(path + "/links.csv");
+		Path csv = Paths.get(downloadPath + "/links.csv");
 		try {
 			Files.createDirectories(csv.getParent());
 
@@ -84,6 +90,23 @@ public class MavenDataset {
 		} catch (IOException e) {
 			logger.error(e);
 		}
+	}
 
+	public void writeM3s() {
+		try (Stream<Path> paths = Files.walk(Paths.get(downloadPath))) {
+			paths.filter(p -> p.toFile().isFile() && p.toString().endsWith(".jar")).forEach(p -> {
+				try {
+					String jar = p.toAbsolutePath().toString();
+					String dest = p.toAbsolutePath().toString() + ".m3";
+
+					logger.info("Building M3 model for {}", jar);
+					m3.writeM3ForJarFile(jar, dest);
+				} catch (IOException e) {
+					logger.error(e);
+				}
+			});
+		} catch (IOException e) {
+			logger.error(e);
+		}
 	}
 }

@@ -45,13 +45,17 @@ public class Main {
 				.build())
 			.addOption(Option
 				.builder("download")
-				.desc("Set this option to download all JARs locally")
+				.desc("Download all JARs locally")
 				.build())
 			.addOption(Option
 				.builder("downloadPath")
 				.hasArg()
 				.argName("path")
 				.desc("Relative path to where the dataset should be downloaded")
+				.build())
+			.addOption(Option
+				.builder("m3")
+				.desc("Serialize the M3 models of all JARs")
 				.build())
 			.addOptionGroup(method);
 
@@ -63,13 +67,17 @@ public class Main {
 			String coordinates = String.format("%s:%s", cmd.getOptionValue("groupId"),
 					cmd.getOptionValue("artifactId"));
 
-			MavenDataset dt = new MavenDataset(coordinates, collector);
+			String path = cmd.getOptionValue("downloadPath", "download");
+			MavenDataset dt = new MavenDataset(coordinates, collector, path);
 			dt.build();
 			dt.printStats();
 
 			if (cmd.hasOption("download")) {
-				String path = cmd.getOptionValue("downloadPath", "download");
-				dt.download(path);
+				dt.download();
+			}
+
+			if (cmd.hasOption("m3")) {
+				dt.writeM3s();
 			}
 		} catch (ParseException e) {
 			logger.error(e.getMessage());
