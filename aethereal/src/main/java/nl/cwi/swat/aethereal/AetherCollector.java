@@ -24,6 +24,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.RateLimiter;
 
@@ -37,9 +38,9 @@ public class AetherCollector implements MavenCollector {
 	private RemoteRepository repository = Aether.newRemoteRepository();
 
 	private RateLimiter aetherLimiter = RateLimiter.create(2.5); // Black magic
-	private RateLimiter jsoupLimiter  = RateLimiter.create(4.0);
+	private RateLimiter jsoupLimiter = RateLimiter.create(4.0);
 
-	private final String MVN_REPOSITORY_USAGE_PAGE = "https://mvnrepository.com/artifact/%s/%s/%s/usages?p=%d";
+	private static final String MVN_REPOSITORY_USAGE_PAGE = "https://mvnrepository.com/artifact/%s/%s/%s/usages?p=%d";
 
 	private static final Logger logger = LogManager.getLogger(AetherCollector.class);
 
@@ -55,7 +56,7 @@ public class AetherCollector implements MavenCollector {
 					.collect(Collectors.toList());
 		} catch (VersionRangeResolutionException e) {
 			logger.error("Couldn't resolve version range", e);
-			return null;
+			return Lists.newArrayList();
 		}
 	}
 
@@ -81,28 +82,9 @@ public class AetherCollector implements MavenCollector {
 
 				// For every version, lookup its direct dependencies and find a match
 				for (Artifact client : allVersions) {
-					ArtifactDescriptorRequest descriptorRequest = new ArtifactDescriptorRequest();
-					descriptorRequest.setArtifact(client);
-					descriptorRequest.addRepository(repository);
-
-					ArtifactDescriptorResult descriptorResult = null;
-					while (descriptorResult == null) {
-						try {
-							// Limit to 1 call / second
-							aetherLimiter.acquire();
-							descriptorResult = system.readArtifactDescriptor(tmpSession, descriptorRequest);
-						} catch (Exception e) {
-							// We got kicked probably
-							logger.error("We got kicked from Maven Central. Waiting 10s");
-							try {
-								Thread.sleep(10000);
-							} catch (InterruptedException ee) {
-							}
-						}
-					}
-
 					// If 'client' has 'artifact' as a direct dependency, we have a match
-					for (Dependency dependency : descriptorResult.getDependencies()) {
+					List<Dependency> dependencies = getDependencies(client, tmpSession);
+					for (Dependency dependency : dependencies) {
 						if (artifact.toString().equals(dependency.getArtifact().toString())) {
 							res.add(client);
 						}
@@ -135,6 +117,32 @@ public class AetherCollector implements MavenCollector {
 		return res;
 	}
 
+	private List<Dependency> getDependencies(Artifact client, RepositorySystemSession tmpSession) {
+		ArtifactDescriptorRequest descriptorRequest = new ArtifactDescriptorRequest();
+		descriptorRequest.setArtifact(client);
+		descriptorRequest.addRepository(repository);
+
+		ArtifactDescriptorResult descriptorResult = null;
+		while (descriptorResult == null) {
+			try {
+				// Limit to 1 call / second
+				aetherLimiter.acquire();
+				descriptorResult = system.readArtifactDescriptor(tmpSession, descriptorRequest);
+			} catch (Exception e) {
+				// We got kicked probably
+				logger.error("We got kicked from Maven Central. Waiting 10s");
+				try {
+					Thread.sleep(10000);
+				} catch (InterruptedException ee) {
+					logger.error(ee);
+					Thread.currentThread().interrupt();
+				}
+			}
+		}
+
+		return descriptorResult.getDependencies();
+	}
+
 	private List<String> parseUsagePage(String groupId, String artifactId, String version, int page) {
 		List<String> res = new ArrayList<>();
 
@@ -150,6 +158,8 @@ public class AetherCollector implements MavenCollector {
 				try {
 					Thread.sleep(10000);
 				} catch (InterruptedException ee) {
+					logger.error(ee);
+					Thread.currentThread().interrupt();
 				}
 			}
 
@@ -176,18 +186,5 @@ public class AetherCollector implements MavenCollector {
 		}
 
 		return res;
-	}
-
-	public static void main(String[] args) throws Exception {
-		MavenCollector collector = new AetherCollector();
-//		AetherDownloader downloader = new AetherDownloader();
-//
-//		List<Artifact> allApis = collector.collectAvailableVersions("org.sonarsource.sonarqube:sonar-plugin-api");
-//		downloader.downloadAllArtifacts(allApis);
-//		List<Artifact> allClients = collector
-//				.collectClientsOf(new DefaultArtifact("org.sonarsource.sonarqube:sonar-plugin-api:7.4"));
-		Multimap<Artifact, Artifact> allClients = collector
-				.collectClientsOf("org.sonarsource.sonarqube:sonar-plugin-api");
-		System.out.println("Found " + allClients.size() + " clients: " + allClients);
 	}
 }

@@ -53,6 +53,8 @@ public class AetherDownloader {
 				try {
 					Thread.sleep(10000);
 				} catch (InterruptedException ee) {
+					logger.error(ee);
+					Thread.currentThread().interrupt();
 				}
 			}
 		}
@@ -65,7 +67,7 @@ public class AetherDownloader {
 	}
 
 	public List<Artifact> downloadAllArtifacts(Collection<Artifact> list) {
-		return list.stream().map(a -> downloadArtifact(a)).collect(Collectors.toList());
+		return list.stream().map(this::downloadArtifact).collect(Collectors.toList());
 	}
 
 	public List<Artifact> downloadAllArtifactsTo(Collection<Artifact> list, String repositoryPath) {

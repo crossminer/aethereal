@@ -2,7 +2,7 @@ package nl.cwi.swat.aethereal;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,7 +49,7 @@ public class MavenDataset {
 		logger.info("Number of clients: {}", clients.size());
 		logger.info("Number of links: {}", links.size());
 
-		List<Artifact> orphans = libraries.stream().filter(a -> links.get(a).size() == 0).collect(Collectors.toList());
+		List<Artifact> orphans = libraries.stream().filter(a -> links.get(a).isEmpty()).collect(Collectors.toList());
 		logger.info("Orphan libraries: {} [{}]", orphans.size(), orphans);
 
 		int cells = libraries.size() * clients.size();
@@ -64,20 +64,20 @@ public class MavenDataset {
 
 	public void download(String path) {
 		// Download libraries
-		downloader.downloadAllArtifactsTo(libraries, String.format("%s/%s", path, "libraries"));
+		downloader.downloadAllArtifactsTo(libraries, path + "/libraries");
 
 		// Download clients
-		downloader.downloadAllArtifactsTo(links.values(), String.format("%s/%s", path, "clients"));
+		downloader.downloadAllArtifactsTo(links.values(), path + "/clients");
 
 		// Serialize a simple csv with links between libraries and clients
-		Path csv = Paths.get(String.format("%s/%s", path, "links.csv"));
+		Path csv = Paths.get(path + "/links.csv");
 		try {
 			Files.createDirectories(csv.getParent());
 
-			try (BufferedWriter writer = Files.newBufferedWriter(csv, Charset.forName("UTF-8"))) {
+			try (BufferedWriter writer = Files.newBufferedWriter(csv, StandardCharsets.UTF_8)) {
 				for (Artifact library : links.keySet())
 					for (Artifact client : links.get(library))
-						writer.write(String.format("%s,%s\n", library, client));
+						writer.write(String.format("%s,%s%n", library, client));
 			} catch (IOException e) {
 				logger.error("Couldn't write CSV", e);
 			}
@@ -85,11 +85,5 @@ public class MavenDataset {
 			logger.error(e);
 		}
 
-	}
-
-	public static void main(String[] args) {
-		MavenDataset dt = new MavenDataset("org.sonarsource.sonarqube:sonar-plugin-api", new LocalCollector());
-		dt.build();
-		dt.printStats();
 	}
 }

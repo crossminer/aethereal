@@ -18,6 +18,10 @@ public class Aether {
 	public static final String LOCAL_REPO = "local-repo";
 	public static final String REMOTE_URL = "http://repo1.maven.org/maven2/";
 
+	private Aether() {
+
+	}
+
 	public static RepositorySystem newRepositorySystem() {
 		DefaultServiceLocator locator = MavenRepositorySystemUtils.newServiceLocator();
 		locator.addService(RepositoryConnectorFactory.class, BasicRepositoryConnectorFactory.class);

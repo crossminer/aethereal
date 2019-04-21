@@ -24,6 +24,7 @@ import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
 /**
@@ -44,7 +45,7 @@ public class LocalCollector implements MavenCollector {
 
 	@Override
 	public List<Artifact> collectAvailableVersions(String coordinates) {
-		List<Artifact> ret = new ArrayList<Artifact>();
+		List<Artifact> ret = new ArrayList<>();
 
 		logger.info("Looking for {} versions in {}", coordinates, DATASET_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
@@ -65,13 +66,13 @@ public class LocalCollector implements MavenCollector {
 			return ret;
 		} catch (IOException e) {
 			logger.error("Couldn't read dataset", e);
-			return null;
+			return Lists.newArrayList();
 		}
 	}
 
 	@Override
 	public List<Artifact> collectClientsOf(Artifact artifact) {
-		List<Artifact> ret = new ArrayList<Artifact>();
+		List<Artifact> ret = new ArrayList<>();
 
 		logger.info("Looking for clients of {} in {}", artifact, DATASET_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
@@ -90,7 +91,7 @@ public class LocalCollector implements MavenCollector {
 			return ret;
 		} catch (IOException e) {
 			logger.error("Couldn't read dataset", e);
-			return null;
+			return Lists.newArrayList();
 		}
 	}
 
@@ -156,21 +157,6 @@ public class LocalCollector implements MavenCollector {
 	}
 
 	private boolean datasetExists() {
-		return Files.exists(Paths.get(DATASET_FILE));
-	}
-
-	public static void main(String[] args) {
-		LocalCollector collector = new LocalCollector();
-		AetherDownloader downloader = new AetherDownloader();
-
-		List<Artifact> res = collector.collectAvailableVersions("org.sonarsource.sonarqube:sonar-plugin-api");
-		System.out.println(res.size() + " sonar JARs");
-
-		List<Artifact> res2 = collector
-				.collectClientsOf(new DefaultArtifact("org.sonarsource.sonarqube:sonar-plugin-api:6.3"));
-		System.out.println(res2.size() + " sonar clients");
-
-		downloader.downloadAllArtifactsTo(res, "sonar-jars");
-		downloader.downloadAllArtifactsTo(res2, "sonar-clients");
+		return Paths.get(DATASET_FILE).toFile().exists();
 	}
 }
