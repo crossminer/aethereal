@@ -25,25 +25,23 @@ import org.jsoup.select.Elements;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.util.concurrent.RateLimiter;
 
 /**
  * The Aether collector relies on Eclipse's Aether to gather information
  * remotely from Maven Central directly.
  */
 public class AetherCollector implements MavenCollector {
-	private RepositorySystem system;
-	private RepositorySystemSession session;
-	private RemoteRepository repository;
+	private RepositorySystem system = Aether.newRepositorySystem();
+	private RepositorySystemSession session = Aether.newSession(system);
+	private RemoteRepository repository = Aether.newRemoteRepository();
+
+	private RateLimiter aetherLimiter = RateLimiter.create(2.5); // Black magic
+	private RateLimiter jsoupLimiter  = RateLimiter.create(4.0);
 
 	private final String MVN_REPOSITORY_USAGE_PAGE = "https://mvnrepository.com/artifact/%s/%s/%s/usages?p=%d";
 
 	private static final Logger logger = LogManager.getLogger(AetherCollector.class);
-
-	public AetherCollector() {
-		system = Aether.newRepositorySystem();
-		session = Aether.newSession(system);
-		repository = Aether.newRemoteRepository();
-	}
 
 	@Override
 	public List<Artifact> collectAvailableVersions(String coordinates) {
@@ -87,8 +85,21 @@ public class AetherCollector implements MavenCollector {
 					descriptorRequest.setArtifact(client);
 					descriptorRequest.addRepository(repository);
 
-					ArtifactDescriptorResult descriptorResult = system.readArtifactDescriptor(tmpSession,
-							descriptorRequest);
+					ArtifactDescriptorResult descriptorResult = null;
+					while (descriptorResult == null) {
+						try {
+							// Limit to 1 call / second
+							aetherLimiter.acquire();
+							descriptorResult = system.readArtifactDescriptor(tmpSession, descriptorRequest);
+						} catch (Exception e) {
+							// We got kicked probably
+							logger.error("We got kicked from Maven Central. Waiting 10s");
+							try {
+								Thread.sleep(10000);
+							} catch (InterruptedException ee) {
+							}
+						}
+					}
 
 					// If 'client' has 'artifact' as a direct dependency, we have a match
 					for (Dependency dependency : descriptorResult.getDependencies()) {
@@ -127,31 +138,41 @@ public class AetherCollector implements MavenCollector {
 	private List<String> parseUsagePage(String groupId, String artifactId, String version, int page) {
 		List<String> res = new ArrayList<>();
 
-		try {
-			Document doc = Jsoup.connect(String.format(MVN_REPOSITORY_USAGE_PAGE, groupId, artifactId, version, page))
-					.get();
-
-			// One div.im block per user of the library; p.im-subtitle contains coordinates
-			Elements ims = doc.select("p.im-subtitle");
-
-			if (!ims.isEmpty()) {
-				ims.forEach(im -> {
-					// Two <a/> per .im-subtitle: first is groupId, second is artifactId
-					Elements as = im.select("a");
-
-					if (as.size() == 2) {
-						String parsedGroupId = as.get(0).text();
-						String parsedArtifactId = as.get(1).text();
-
-						res.add(String.format("%s:%s", parsedGroupId, parsedArtifactId));
-					}
-				});
-
-				// Continue on next usage page
-				res.addAll(parseUsagePage(groupId, artifactId, version, page + 1));
+		Document doc = null;
+		while (doc == null) {
+			try {
+				// Probably useless, but costless
+				jsoupLimiter.acquire();
+				doc = Jsoup.connect(String.format(MVN_REPOSITORY_USAGE_PAGE, groupId, artifactId, version, page))
+						.timeout(10000).get();
+			} catch (Exception e) {
+				logger.error("We got kicked from mvnrepository.com. Waiting 10s.");
+				try {
+					Thread.sleep(10000);
+				} catch (InterruptedException ee) {
+				}
 			}
-		} catch (IOException e) {
-			logger.error("Error fetching mvnrepository.com usage page", e);
+
+		}
+
+		// One div.im block per user of the library; p.im-subtitle contains coordinates
+		Elements ims = doc.select("p.im-subtitle");
+
+		if (!ims.isEmpty()) {
+			ims.forEach(im -> {
+				// Two <a/> per .im-subtitle: first is groupId, second is artifactId
+				Elements as = im.select("a");
+
+				if (as.size() == 2) {
+					String parsedGroupId = as.get(0).text();
+					String parsedArtifactId = as.get(1).text();
+
+					res.add(String.format("%s:%s", parsedGroupId, parsedArtifactId));
+				}
+			});
+
+			// Continue on next usage page
+			res.addAll(parseUsagePage(groupId, artifactId, version, page + 1));
 		}
 
 		return res;
