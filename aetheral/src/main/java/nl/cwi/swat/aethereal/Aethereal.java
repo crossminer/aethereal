@@ -1,4 +1,4 @@
-package nl.cwi.swat;
+package nl.cwi.swat.aethereal;
 
 import java.util.List;
 import java.util.stream.Collectors;
