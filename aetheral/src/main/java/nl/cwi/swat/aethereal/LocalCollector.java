@@ -23,6 +23,9 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+
 /**
  * The Local collector uses a pre-computed dependency graph of Maven Central
  * available at https://zenodo.org/record/1489120 to gather all information
@@ -70,7 +73,7 @@ public class LocalCollector implements MavenCollector {
 	public List<Artifact> collectClientsOf(Artifact artifact) {
 		List<Artifact> ret = new ArrayList<Artifact>();
 
-		logger.info("Looking for {} clients in {}", artifact, DATASET_FILE);
+		logger.info("Looking for clients of {} in {}", artifact, DATASET_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
@@ -79,7 +82,7 @@ public class LocalCollector implements MavenCollector {
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
 
-				if (target.equals(toCoordinates(artifact))) {
+				if (target.equals(Aether.toCoordinates(artifact))) {
 					ret.add(new DefaultArtifact(source));
 				}
 			}
@@ -91,8 +94,29 @@ public class LocalCollector implements MavenCollector {
 		}
 	}
 
-	private String toCoordinates(Artifact artifact) {
-		return artifact.getGroupId() + ":" + artifact.getArtifactId() + ":" + artifact.getVersion();
+	@Override
+	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates) {
+		Multimap<Artifact, Artifact> ret = ArrayListMultimap.create();
+
+		logger.info("Looking for clients of any version of {} in {}", coordinates, DATASET_FILE);
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
+			while (it.hasNext()) {
+				// Each line in the form "source","target","scope"
+				String line = it.nextLine();
+				String[] fields = line.split(",");
+				String source = fields[0].replaceAll("\"", "");
+				String target = fields[1].replaceAll("\"", "");
+
+				if (target.startsWith(coordinates + ":")) {
+					ret.put(new DefaultArtifact(target), new DefaultArtifact(source));
+				}
+			}
+
+			return ret;
+		} catch (IOException e) {
+			logger.error("Couldn't read dataset", e);
+			return null;
+		}
 	}
 
 	private void retrieveDataset() {

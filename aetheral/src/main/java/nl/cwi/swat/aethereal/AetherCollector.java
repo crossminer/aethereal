@@ -14,6 +14,8 @@ import org.eclipse.aether.resolution.VersionRangeRequest;
 import org.eclipse.aether.resolution.VersionRangeResolutionException;
 import org.eclipse.aether.resolution.VersionRangeResult;
 
+import com.google.common.collect.Multimap;
+
 /**
  * The Aether collector relies on Eclipse's Aether to gather information
  * remotely from Maven Central directly.
@@ -49,7 +51,12 @@ public class AetherCollector implements MavenCollector {
 
 	@Override
 	public List<Artifact> collectClientsOf(Artifact artifact) {
-		throw new UnsupportedOperationException("Aether cannot be used for that");
+		throw new UnsupportedOperationException("Aether cannot be used (yet!) for that");
+	}
+
+	@Override
+	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates) {
+		throw new UnsupportedOperationException("Aether cannot be used (yet!) for that");
 	}
 
 	public static void main(String[] args) throws Exception {

@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.eclipse.aether.artifact.Artifact;
 
+import com.google.common.collect.Multimap;
+
 public interface MavenCollector {
 	/**
 	 * Collect all available versions of the given artifact on the remote repository
@@ -17,4 +19,13 @@ public interface MavenCollector {
 	 * Collect all clients of the given artifact on the remote repository
 	 */
 	public List<Artifact> collectClientsOf(Artifact artifact);
+
+	/**
+	 * Collect all clients of the given unversioned coordinate on the remote
+	 * repository (i.e. all clients of any version of the supplied artifact)
+	 * 
+	 * @param coordinates Version-free coordinates, i.e.
+	 *                    &lt;groupId&gt;:&lt;artifactId&gt;
+	 */
+	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates);
 }
