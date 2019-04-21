@@ -47,12 +47,6 @@ public class Main {
 				.builder("download")
 				.desc("Set this option to download all JARs locally")
 				.build())
-			.addOption(
-				Option.builder("localRepo")
-				.hasArg()
-				.argName("path")
-				.desc("Path to a local repository where temporary POM and JARs are downloaded")
-				.build())
 			.addOptionGroup(method);
 
 		try {
