@@ -11,19 +11,13 @@ import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
-import org.eclipse.aether.collection.CollectRequest;
-import org.eclipse.aether.collection.DependencyCollectionException;
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory;
-import org.eclipse.aether.graph.Dependency;
-import org.eclipse.aether.graph.DependencyNode;
 import org.eclipse.aether.impl.DefaultServiceLocator;
 import org.eclipse.aether.repository.LocalRepository;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
-import org.eclipse.aether.resolution.DependencyRequest;
-import org.eclipse.aether.resolution.DependencyResolutionException;
 import org.eclipse.aether.resolution.VersionRangeRequest;
 import org.eclipse.aether.resolution.VersionRangeResolutionException;
 import org.eclipse.aether.resolution.VersionRangeResult;
@@ -31,9 +25,8 @@ import org.eclipse.aether.spi.connector.RepositoryConnectorFactory;
 import org.eclipse.aether.spi.connector.transport.TransporterFactory;
 import org.eclipse.aether.transport.file.FileTransporterFactory;
 import org.eclipse.aether.transport.http.HttpTransporterFactory;
-import org.eclipse.aether.util.graph.visitor.PreorderNodeListGenerator;
 
-public class Aethereal {
+public class AetherCollector implements MavenCollector {
 	public static final String LOCAL_REPO = "local-repo";
 	public static final String REMOTE_URL = "http://repo1.maven.org/maven2/";
 
@@ -41,31 +34,34 @@ public class Aethereal {
 	private RepositorySystemSession session;
 	private RemoteRepository repository;
 
-	private static final Logger logger = LogManager.getLogger(Aethereal.class);
+	private static final Logger logger = LogManager.getLogger(AetherCollector.class);
 
-	public Aethereal() {
+	public AetherCollector() {
 		system = newRepositorySystem();
 		session = newSession(system);
 		repository = newRemoteRepository();
 	}
 
-	public List<Artifact> collectAvailableVersions(String coordinates)
-			throws VersionRangeResolutionException, ArtifactResolutionException {
-		Artifact artifact = new DefaultArtifact(coordinates + ":[0,)");
-
+	@Override
+	public List<Artifact> collectAvailableVersions(String coordinates) {
 		VersionRangeRequest rangeRequest = new VersionRangeRequest();
-		rangeRequest.setArtifact(artifact);
+		rangeRequest.setArtifact(new DefaultArtifact(coordinates + ":[0,)"));
 		rangeRequest.addRepository(repository);
 
-		VersionRangeResult rangeResult = system.resolveVersionRange(session, rangeRequest);
-
-		return rangeResult.getVersions().stream()
-				.map(v -> new DefaultArtifact(coordinates + ":" + v))
-				.collect(Collectors.toList());
+		try {
+			VersionRangeResult rangeResult = system.resolveVersionRange(session, rangeRequest);
+			return rangeResult.getVersions().stream()
+					.map(v -> new DefaultArtifact(coordinates + ":" + v))
+					.collect(Collectors.toList());
+		} catch (VersionRangeResolutionException e) {
+			logger.error("Couldn't resolve version range", e);
+			return null;
+		}
 	}
-	
-	public Artifact downloadArtifact(String coordinates) {
-		return downloadArtifact(new DefaultArtifact(coordinates));
+
+	@Override
+	public List<Artifact> collectClientsOf(Artifact artifact) {
+		throw new UnsupportedOperationException("Aether cannot be used for that");
 	}
 
 	public Artifact downloadArtifact(Artifact artifact) {
@@ -78,32 +74,9 @@ public class Aethereal {
 			ArtifactResult artifactResult = system.resolveArtifact(session, request);
 			return artifactResult.getArtifact();
 		} catch (ArtifactResolutionException e) {
-			logger.error("Couldn't download {}", artifact);
+			logger.error("Couldn't download {}", artifact, e);
 			return null;
 		}
-	}
-
-	public List<Artifact> downloadAllArtifacts(List<Artifact> list) {
-		return list.stream()
-				.map(a -> downloadArtifact(a))
-				.collect(Collectors.toList());
-	}
-
-	public void displayDependencies(String group) throws DependencyCollectionException, DependencyResolutionException {
-		Dependency dependency = new Dependency(new DefaultArtifact("org.apache.maven:maven-profile:2.2.1"), "compile");
-
-		CollectRequest collectRequest = new CollectRequest();
-		collectRequest.setRoot(dependency);
-		collectRequest.addRepository(repository);
-		DependencyNode node = system.collectDependencies(session, collectRequest).getRoot();
-
-		DependencyRequest dependencyRequest = new DependencyRequest();
-		dependencyRequest.setRoot(node);
-
-		system.resolveDependencies(session, dependencyRequest);
-
-		PreorderNodeListGenerator nlg = new PreorderNodeListGenerator();
-		node.accept(nlg);
 	}
 
 	private RepositorySystem newRepositorySystem() {
@@ -129,9 +102,9 @@ public class Aethereal {
 	}
 
 	public static void main(String[] args) throws Exception {
-		Aethereal a = new Aethereal();
-		
-		List<Artifact> allApis = a.collectAvailableVersions("org.sonarsource.sonarqube:sonar-plugin-api");
-		a.downloadAllArtifacts(allApis);
+		MavenCollector collector = new AetherCollector();
+
+		List<Artifact> allApis = collector.collectAvailableVersions("org.sonarsource.sonarqube:sonar-plugin-api");
+		collector.downloadAllArtifacts(allApis);
 	}
 }
