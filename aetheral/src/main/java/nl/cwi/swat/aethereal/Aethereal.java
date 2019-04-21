@@ -125,7 +125,7 @@ public class Aethereal {
 	}
 
 	private RemoteRepository newRemoteRepository() {
-		return new RemoteRepository.Builder("central", "default", "http://repo1.maven.org/maven2/").build();
+		return new RemoteRepository.Builder("central", "default", REMOTE_URL).build();
 	}
 
 	public static void main(String[] args) throws Exception {
