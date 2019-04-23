@@ -20,6 +20,7 @@ import org.eclipse.aether.artifact.Artifact;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.collect.Sets.SetView;
 import com.google.common.collect.Table;
 
 import nl.cwi.swat.aethereal.rascal.RascalM3;
@@ -76,7 +77,7 @@ public class MavenDataset {
 		int min = libraries.stream().mapToInt(a -> links.get(a).size()).min().getAsInt();
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
-		
+
 		getMostMigratedVersions();
 	}
 
@@ -94,10 +95,23 @@ public class MavenDataset {
 		String v2 = "";
 		for (int i = 0; i < loaded.size(); i++)
 			for (int j = i + 1; j < loaded.size() - 1; j++) {
-				int currentVal = Sets.intersection(loaded.get(i), loaded.get(j)).size();
-				value = currentVal > value ? currentVal : value;
-				v1 = libraries.get(i).getVersion();
-				v2 = libraries.get(j).getVersion();
+				SetView<String> intersection = Sets.intersection(loaded.get(i), loaded.get(j));
+				int currentVal = 0;
+				for (String client : intersection) {
+					if(!versionMatrix.get(libraries.get(i), client)
+							.equals(versionMatrix.get(libraries.get(j), client)))
+						currentVal ++;
+				}
+				
+				if (currentVal > value) {
+					value = currentVal;
+					v1 = String.format("%s:%s:%s",libraries.get(i).getGroupId(), 
+							libraries.get(i).getArtifactId(), 
+							libraries.get(i).getVersion());
+					v2 = String.format("%s:%s:%s",libraries.get(j).getGroupId(), 
+							libraries.get(j).getArtifactId(), 
+							libraries.get(j).getVersion());
+				}
 			}
 		logger.info("{} - {} : {}", v1, v2, value);
 		return;
