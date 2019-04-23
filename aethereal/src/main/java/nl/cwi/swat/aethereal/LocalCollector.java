@@ -36,7 +36,7 @@ import com.google.common.collect.Multimap;
 public class LocalCollector implements MavenCollector {
 	private static final String DATASET_PATH = "dataset/";
 	private static final String VERSIONS_FILE = DATASET_PATH + "next_all.csv";
-	private static final String DATASET_FILE = DATASET_PATH + "links_all.csv";
+	private static final String LINKS_FILE = DATASET_PATH + "links_all.csv";
 	private static final String REMOTE_DATASET = "https://zenodo.org/record/1489120/files/maven-data.csv.tar.xz";
 
 	private static final Logger logger = LogManager.getLogger(LocalCollector.class);
@@ -77,8 +77,8 @@ public class LocalCollector implements MavenCollector {
 	public List<Artifact> collectClientsOf(Artifact artifact) {
 		List<Artifact> ret = new ArrayList<>();
 
-		logger.info("Looking for clients of {} in {}", artifact, DATASET_FILE);
-		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
+		logger.info("Looking for clients of {} in {}", artifact, LINKS_FILE);
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
 				String line = it.nextLine();
@@ -102,8 +102,8 @@ public class LocalCollector implements MavenCollector {
 	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates) {
 		Multimap<Artifact, Artifact> ret = ArrayListMultimap.create();
 
-		logger.info("Looking for clients of any version of {} in {}", coordinates, DATASET_FILE);
-		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
+		logger.info("Looking for clients of any version of {} in {}", coordinates, LINKS_FILE);
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
 				String line = it.nextLine();
@@ -144,10 +144,16 @@ public class LocalCollector implements MavenCollector {
 				ArchiveEntry entry = null;
 				while ((entry = arch.getNextEntry()) != null) {
 					if (entry.getName().equals("maven-data.csv/links_all.csv")) {
-						try (OutputStream o = Files.newOutputStream(Paths.get(DATASET_FILE))) {
+						try (OutputStream o = Files.newOutputStream(Paths.get(LINKS_FILE))) {
 							IOUtils.copy(arch, o);
 						} catch (IOException e) {
-							logger.error("Couldn't open destination file", e);
+							logger.error("Couldn't write destination file", e);
+						}
+					} else if (entry.getName().equals("maven-data.csv/next_all.csv")) {
+						try (OutputStream o = Files.newOutputStream(Paths.get(VERSIONS_FILE))) {
+							IOUtils.copy(arch, o);
+						} catch (IOException e) {
+							logger.error("Couldn't write destination file", e);
 						}
 					}
 				}
@@ -160,6 +166,6 @@ public class LocalCollector implements MavenCollector {
 	}
 
 	private boolean datasetExists() {
-		return Paths.get(DATASET_FILE).toFile().exists();
+		return Paths.get(LINKS_FILE).toFile().exists() && Paths.get(VERSIONS_FILE).toFile().exists();
 	}
 }
