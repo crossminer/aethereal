@@ -57,7 +57,9 @@ public class LocalCollector implements MavenCollector {
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
-				if (source.startsWith(coordinates)) {
+
+				// ':' included to avoid matching source[-more-text]
+				if (source.startsWith(coordinates + ":")) {
 					Artifact older = new DefaultArtifact(source);
 					Artifact newer = new DefaultArtifact(target);
 					if (!ret.contains(older))
