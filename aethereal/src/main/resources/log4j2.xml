@@ -2,13 +2,16 @@
 <Configuration status="INFO">
 	<Appenders>
 		<Console name="console" target="SYSTEM_OUT">
-			<PatternLayout
-				pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss} [%t] %c{1} - %msg%n" />
+			<PatternLayout pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss} [%t] %c{1} - %msg%n" />
 		</Console>
+		<File name="file" fileName="aethereal.log" append="true">
+            <PatternLayout pattern="[%-5level] %d{yyyy-MM-dd HH:mm:ss} [%t] %c{1} - %msg%n"/>
+        </File>
 	</Appenders>
 	<Loggers>
 		<Root level="debug" additivity="false">
 			<AppenderRef ref="console" />
+			<AppenderRef ref="file" />
 		</Root>
 	</Loggers>
 </Configuration>
