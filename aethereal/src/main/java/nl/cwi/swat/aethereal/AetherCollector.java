@@ -92,7 +92,8 @@ public class AetherCollector implements MavenCollector {
 					// If 'client' has 'artifact' as a direct dependency, we have a match
 					List<Dependency> dependencies = getDependencies(client, tmpSession);
 					for (Dependency dependency : dependencies) {
-						if (artifact.toString().equals(dependency.getArtifact().toString())) {
+						if (artifact.toString().equals(dependency.getArtifact().toString())
+								&& dependency.getScope().equals("compile")) {
 							logger.info("{} does match", client);
 							res.add(client);
 							break;

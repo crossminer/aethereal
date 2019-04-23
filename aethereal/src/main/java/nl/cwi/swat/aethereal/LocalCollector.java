@@ -86,8 +86,9 @@ public class LocalCollector implements MavenCollector {
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
+				String scope = fields[2].replaceAll("\"", "");
 
-				if (target.equals(Aether.toCoordinates(artifact))) {
+				if (target.equals(Aether.toCoordinates(artifact)) && scope.equals("Compile")) {
 					ret.add(new DefaultArtifact(source));
 				}
 			}
@@ -111,8 +112,9 @@ public class LocalCollector implements MavenCollector {
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
+				String scope = fields[2].replaceAll("\"", "");
 
-				if (target.startsWith(coordinates + ":")) {
+				if (target.startsWith(coordinates + ":") && scope.equals("Compile")) {
 					ret.put(new DefaultArtifact(target), new DefaultArtifact(source));
 				}
 			}
