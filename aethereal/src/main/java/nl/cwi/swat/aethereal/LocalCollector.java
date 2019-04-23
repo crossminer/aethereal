@@ -70,7 +70,7 @@ public class LocalCollector implements MavenCollector {
 			}
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read dataset", e);
+			logger.error("Couldn't read {}", VERSIONS_FILE, e);
 			return Lists.newArrayList();
 		}
 	}
@@ -95,7 +95,7 @@ public class LocalCollector implements MavenCollector {
 
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read dataset", e);
+			logger.error("Couldn't read {}", LINKS_FILE, e);
 			return Lists.newArrayList();
 		}
 	}
@@ -120,7 +120,7 @@ public class LocalCollector implements MavenCollector {
 
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read dataset", e);
+			logger.error("Couldn't read {}", LINKS_FILE, e);
 			return null;
 		}
 	}
