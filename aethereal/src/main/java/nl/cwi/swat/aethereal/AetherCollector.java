@@ -3,6 +3,7 @@ package nl.cwi.swat.aethereal;
 import java.io.IOException;
 import java.net.NoRouteToHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -142,6 +143,7 @@ public class AetherCollector implements MavenCollector {
 				// Either the artifact doesn't exist on Central, or we got kicked
 				if (root instanceof ArtifactNotFoundException) {
 					logger.warn("Artifact %s retrieved from mvnrepository.com doesn't exist on Maven Central.", client);
+					break;
 				} else if (root instanceof NoRouteToHostException) {
 					logger.warn("We got kicked from Maven Central. Waiting 30s.", e);
 					try {
@@ -154,7 +156,7 @@ public class AetherCollector implements MavenCollector {
 			}
 		}
 
-		return descriptorResult.getDependencies();
+		return descriptorResult != null ? descriptorResult.getDependencies() : Collections.emptyList();
 	}
 
 	private List<String> parseUsagePage(String groupId, String artifactId, String version, int page) {
