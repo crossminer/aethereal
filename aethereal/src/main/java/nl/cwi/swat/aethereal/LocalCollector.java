@@ -27,7 +27,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
-
 /**
  * The Local collector uses a pre-computed dependency graph of Maven Central
  * available at https://zenodo.org/record/1489120 to gather all information
@@ -123,6 +122,11 @@ public class LocalCollector implements MavenCollector {
 			logger.error("Couldn't read {}", LINKS_FILE, e);
 			return null;
 		}
+	}
+
+	@Override
+	public List<Artifact> collectLibrariesMatching(MavenCollectorQuery query) {
+		throw new UnsupportedOperationException("Not yet");
 	}
 
 	private void retrieveDataset() {

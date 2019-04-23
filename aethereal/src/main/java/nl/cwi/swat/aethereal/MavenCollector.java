@@ -28,4 +28,10 @@ public interface MavenCollector {
 	 *                    &lt;groupId&gt;:&lt;artifactId&gt;
 	 */
 	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates);
+
+	/**
+	 * Collect libraries that match the given query (number of clients, size of the
+	 * JAR, number of versions, etc.)
+	 */
+	public List<Artifact> collectLibrariesMatching(MavenCollectorQuery query);
 }

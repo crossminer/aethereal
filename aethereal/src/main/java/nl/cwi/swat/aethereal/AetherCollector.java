@@ -126,6 +126,11 @@ public class AetherCollector implements MavenCollector {
 		return res;
 	}
 
+	@Override
+	public List<Artifact> collectLibrariesMatching(MavenCollectorQuery query) {
+		throw new UnsupportedOperationException("Not yet");
+	}
+
 	private List<Dependency> getDependencies(Artifact client, RepositorySystemSession tmpSession) {
 		ArtifactDescriptorRequest descriptorRequest = new ArtifactDescriptorRequest();
 		descriptorRequest.setArtifact(client);
