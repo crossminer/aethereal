@@ -36,7 +36,7 @@ public class MavenDataset {
 	private List<Artifact> libraries = new ArrayList<>();
 	private Set<String> unversionedClients = new HashSet<>();
 	private Multimap<Artifact, Artifact> links = ArrayListMultimap.create();
-	private Table<Artifact, String, String> versionMatrix;
+	private Table<Artifact, String, String> versionMatrix = HashBasedTable.create();
 	private static final Logger logger = LogManager.getLogger(MavenDataset.class);
 
 	public MavenDataset(String coordinates, MavenCollector collector, String path) {
@@ -83,40 +83,41 @@ public class MavenDataset {
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
 
-		printMostMigratedVersions();
+		List<MigrationInfo> candidates = computeMigratedVersions();
+		logger.info("5 most migrated libraries:");
+		candidates.stream().limit(5)
+				.forEach(c -> logger.info("{} migrations between {} and {}", c.count, c.libv1, c.libv2));
 	}
 
-	private void printMostMigratedVersions() {
+	public List<MigrationInfo> computeMigratedVersions() {
 		List<Set<String>> loaded = new ArrayList<>();
 		for (Artifact library : libraries) {
-			Set<String> s = new HashSet<>();
+			Set<String> clients = new HashSet<>();
 			for (String client : unversionedClients)
 				if (versionMatrix.get(library, client) != null)
-					s.add(client);
-			loaded.add(s);
+					clients.add(client);
+			loaded.add(clients);
 		}
 
-		int value = 0;
-		String v1 = "";
-		String v2 = "";
-		for (int i = 0; i < loaded.size(); i++)
+		List<MigrationInfo> candidates = new ArrayList<>();
+		for (int i = 0; i < loaded.size(); i++) {
 			for (int j = i + 1; j < loaded.size() - 1; j++) {
 				SetView<String> intersection = Sets.intersection(loaded.get(i), loaded.get(j));
-				int currentVal = 0;
 
+				int currentVal = 0;
 				for (String client : intersection) {
 					if (!versionMatrix.get(libraries.get(i), client)
 							.equals(versionMatrix.get(libraries.get(j), client)))
 						currentVal++;
 				}
 
-				if (currentVal > value) {
-					value = currentVal;
-					v1 = Aether.toCoordinates(libraries.get(i));
-					v2 = Aether.toCoordinates(libraries.get(j));
-				}
+				candidates.add(new MigrationInfo(Aether.toCoordinates(libraries.get(i)),
+						Aether.toCoordinates(libraries.get(j)), currentVal));
 			}
-		logger.info("{} migrations between {} and {}", value, v1, v2);
+		}
+
+		candidates.sort((m1, m2) -> m2.count.compareTo(m1.count));
+		return candidates;
 	}
 
 	public void writeVersionMatrix() {
@@ -192,4 +193,21 @@ public class MavenDataset {
 		}
 	}
 
+	// Whatever..
+	final class MigrationInfo {
+		public String libv1;
+		public String libv2;
+		public Integer count;
+
+		MigrationInfo(String l1, String l2, int c) {
+			libv1 = l1;
+			libv2 = l2;
+			count = c;
+		}
+
+		@Override
+		public String toString() {
+			return String.format("[%s] %s -> %s", count, libv1, libv2);
+		}
+	}
 }
