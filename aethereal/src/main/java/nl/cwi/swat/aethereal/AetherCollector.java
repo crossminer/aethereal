@@ -1,11 +1,13 @@
 package nl.cwi.swat.aethereal;
 
 import java.io.IOException;
+import java.net.NoRouteToHostException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.RepositorySystem;
@@ -20,6 +22,7 @@ import org.eclipse.aether.resolution.ArtifactDescriptorResult;
 import org.eclipse.aether.resolution.VersionRangeRequest;
 import org.eclipse.aether.resolution.VersionRangeResolutionException;
 import org.eclipse.aether.resolution.VersionRangeResult;
+import org.eclipse.aether.transfer.ArtifactNotFoundException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -87,18 +90,13 @@ public class AetherCollector implements MavenCollector {
 				for (Artifact client : allVersions) {
 					// If 'client' has 'artifact' as a direct dependency, we have a match
 					List<Dependency> dependencies = getDependencies(client, tmpSession);
-					boolean match = false;
 					for (Dependency dependency : dependencies) {
 						if (artifact.toString().equals(dependency.getArtifact().toString())) {
 							logger.info("{} does match", client);
-							match = true;
 							res.add(client);
 							break;
 						}
 					}
-
-					if (!match)
-						logger.info("{} does not match", client);
 				}
 			}
 		} catch (Exception e) {
@@ -139,13 +137,19 @@ public class AetherCollector implements MavenCollector {
 				aetherLimiter.acquire();
 				descriptorResult = system.readArtifactDescriptor(tmpSession, descriptorRequest);
 			} catch (ArtifactDescriptorException e) {
-				// We got kicked probably
-				logger.error("We got kicked from Maven Central. Waiting 1min.", e);
-				try {
-					Thread.sleep(1000 * 60);
-				} catch (InterruptedException ee) {
-					logger.error(ee);
-					Thread.currentThread().interrupt();
+				Throwable root = ExceptionUtils.getRootCause(e);
+
+				// Either the artifact doesn't exist on Central, or we got kicked
+				if (root instanceof ArtifactNotFoundException) {
+					logger.warn("Artifact %s retrieved from mvnrepository.com doesn't exist on Maven Central.", client);
+				} else if (root instanceof NoRouteToHostException) {
+					logger.warn("We got kicked from Maven Central. Waiting 30s.", e);
+					try {
+						Thread.sleep(1000 * 30);
+					} catch (InterruptedException ee) {
+						logger.error(ee);
+						Thread.currentThread().interrupt();
+					}
 				}
 			}
 		}
@@ -164,9 +168,9 @@ public class AetherCollector implements MavenCollector {
 				doc = Jsoup.connect(String.format(MVN_REPOSITORY_USAGE_PAGE, groupId, artifactId, version, page))
 						.timeout(10000).get();
 			} catch (Exception e) {
-				logger.error("We got kicked from mvnrepository.com. Waiting 1min.");
+				logger.warn("We got kicked from mvnrepository.com. Waiting 30s.");
 				try {
-					Thread.sleep(1000 * 60);
+					Thread.sleep(1000 * 30);
 				} catch (InterruptedException ee) {
 					logger.error(ee);
 					Thread.currentThread().interrupt();
