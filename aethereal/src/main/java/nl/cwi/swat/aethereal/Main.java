@@ -1,5 +1,7 @@
 package nl.cwi.swat.aethereal;
 
+import java.io.IOException;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -48,18 +50,18 @@ public class Main {
 				.desc("Download all JARs locally")
 				.build())
 			.addOption(Option
-				.builder("downloadPath")
+				.builder("datasetPath")
 				.hasArg()
 				.argName("path")
-				.desc("Relative path to where the dataset should be downloaded")
+				.desc("Relative path to where the dataset should be stored (default is 'dataset')")
 				.build())
 			.addOption(Option
 				.builder("m3")
 				.desc("Serialize the M3 models of all JARs")
 				.build())
 			.addOption(Option
-				.builder("pvm")
-				.desc("Serialize the plugin version matrix as csv")
+				.builder("csv")
+				.desc("Serialize the version matrix as csv")
 				.build())
 			.addOptionGroup(method);
 
@@ -71,10 +73,14 @@ public class Main {
 			String coordinates = String.format("%s:%s", cmd.getOptionValue("groupId"),
 					cmd.getOptionValue("artifactId"));
 
-			String path = cmd.getOptionValue("downloadPath", "download");
+			String path = cmd.getOptionValue("datasetPath", "dataset");
 			MavenDataset dt = new MavenDataset(coordinates, collector, path);
 			dt.build();
 			dt.printStats();
+
+			if (cmd.hasOption("csv")) {
+				dt.writeVersionMatrix();
+			}
 
 			if (cmd.hasOption("download")) {
 				dt.download();
@@ -83,11 +89,11 @@ public class Main {
 			if (cmd.hasOption("m3")) {
 				dt.writeM3s();
 			}
-			if (cmd.hasOption("pvm"))
-				dt.exportPluginVersionMatrix();
 		} catch (ParseException e) {
 			logger.error(e.getMessage());
 			formatter.printHelp("aethereal", opts);
+		} catch (IOException e) {
+			logger.error(e);
 		}
 	}
 
