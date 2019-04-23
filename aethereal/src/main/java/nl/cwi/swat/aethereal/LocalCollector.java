@@ -34,7 +34,7 @@ import com.google.common.collect.Multimap;
  * about artifacts locally.
  */
 public class LocalCollector implements MavenCollector {
-	private static final String DATASET_PATH = "dataset/";
+	private static final String DATASET_PATH = "dependency-graph/";
 	private static final String VERSIONS_FILE = DATASET_PATH + "next_all.csv";
 	private static final String LINKS_FILE = DATASET_PATH + "links_all.csv";
 	private static final String REMOTE_DATASET = "https://zenodo.org/record/1489120/files/maven-data.csv.tar.xz";
@@ -127,11 +127,11 @@ public class LocalCollector implements MavenCollector {
 
 	private void retrieveDataset() {
 		if (datasetExists()) {
-			logger.info("Local dataset found. Skipping download.");
+			logger.info("Maven Dependency Graph found. Skipping download.");
 			return;
 		}
 
-		logger.warn("Couldn't find local dataset. I will download and extract it for you (~1.1GB).");
+		logger.warn("Couldn't find the Maven Dependency Graph. I will download and extract it for you (~1.1GB).");
 
 		try {
 			logger.warn("Downloading archive from {} to {}", REMOTE_DATASET, DATASET_PATH);

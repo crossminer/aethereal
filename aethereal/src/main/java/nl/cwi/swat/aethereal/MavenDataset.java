@@ -27,7 +27,7 @@ import nl.cwi.swat.aethereal.rascal.RascalM3;
 
 public class MavenDataset {
 	private String coordinates;
-	private String downloadPath;
+	private String datasetPath;
 	private MavenCollector collector;
 	private AetherDownloader downloader = new AetherDownloader();
 	private RascalM3 m3 = new RascalM3();
@@ -41,11 +41,14 @@ public class MavenDataset {
 	public MavenDataset(String coordinates, MavenCollector collector, String path) {
 		this.coordinates = coordinates;
 		this.collector = collector;
-		this.downloadPath = path;
+		this.datasetPath = path;
 	}
 
-	public void build() {
+	public void build() throws IOException {
 		logger.info("Building dataset for {}", coordinates);
+
+		logger.info("Creating output folder {}", datasetPath);
+		Files.createDirectories(Paths.get(datasetPath));
 
 		libraries = collector.collectAvailableVersions(coordinates);
 		logger.info("Found {} versions", libraries.size());
@@ -53,7 +56,7 @@ public class MavenDataset {
 		links = collector.collectClientsOf(coordinates);
 		logger.info("Found {} clients for all versions", links.size());
 
-		versionMatrix = getVersionMatrix();
+		versionMatrix = computeVersionMatrix();
 		logger.info("Computed the plugin version matrix");
 	}
 
@@ -98,18 +101,16 @@ public class MavenDataset {
 				SetView<String> intersection = Sets.intersection(loaded.get(i), loaded.get(j));
 				int currentVal = 0;
 				for (String client : intersection) {
-					if(!versionMatrix.get(libraries.get(i), client)
+					if (!versionMatrix.get(libraries.get(i), client)
 							.equals(versionMatrix.get(libraries.get(j), client)))
-						currentVal ++;
+						currentVal++;
 				}
-				
+
 				if (currentVal > value) {
 					value = currentVal;
-					v1 = String.format("%s:%s:%s",libraries.get(i).getGroupId(), 
-							libraries.get(i).getArtifactId(), 
+					v1 = String.format("%s:%s:%s", libraries.get(i).getGroupId(), libraries.get(i).getArtifactId(),
 							libraries.get(i).getVersion());
-					v2 = String.format("%s:%s:%s",libraries.get(j).getGroupId(), 
-							libraries.get(j).getArtifactId(), 
+					v2 = String.format("%s:%s:%s", libraries.get(j).getGroupId(), libraries.get(j).getArtifactId(),
 							libraries.get(j).getVersion());
 				}
 			}
@@ -117,55 +118,51 @@ public class MavenDataset {
 		return;
 	}
 
-	public void exportPluginVersionMatrix() {
+	public void writeVersionMatrix() {
 		if (versionMatrix == null)
-			versionMatrix = getVersionMatrix();
-		Path path = Paths.get("dataset/pluginMatrix.csv");
+			versionMatrix = computeVersionMatrix();
 
-		// Use try-with-resource to get auto-closeable writer instance
+		Path path = Paths.get(datasetPath + "/versionMatrix.csv");
 		try (BufferedWriter writer = Files.newBufferedWriter(path)) {
+			// Header in the form ", client1, client2, ..."
 			writer.write(",");
-			for (String client : clients)
-				writer.write(client + ",");
+			writer.write(clients.stream().collect(Collectors.joining(",")));
 			writer.newLine();
+
+			// Rows in the form "libversion, client1version, client2version, ..."
 			for (Artifact library : libraries) {
 				writer.write(library.getVersion() + ",");
-				for (String client : clients)
-					writer.write((versionMatrix.get(library, client) == null ? "" : versionMatrix.get(library, client))
-							+ ",");
+				writer.write(clients.stream()
+						.map(c -> versionMatrix.contains(library, c) ? "" : versionMatrix.get(library, c))
+						.collect(Collectors.joining(",")));
 				writer.newLine();
 			}
 		} catch (IOException e) {
-			logger.error("CSV writer error" + e.getMessage());
+			logger.error("Couldn't write version matrix", e);
 		}
 	}
 
 	public void download() {
 		// Download libraries
-		downloader.downloadAllArtifactsTo(libraries, downloadPath + "/libraries");
+		downloader.downloadAllArtifactsTo(libraries, datasetPath + "/libraries");
 
 		// Download clients
-		downloader.downloadAllArtifactsTo(links.values(), downloadPath + "/clients");
+		downloader.downloadAllArtifactsTo(links.values(), datasetPath + "/clients");
 
-		// Serialize a simple csv with links between libraries and clients
-		Path csv = Paths.get(downloadPath + "/links.csv");
-		try {
-			Files.createDirectories(csv.getParent());
-
-			try (BufferedWriter writer = Files.newBufferedWriter(csv, StandardCharsets.UTF_8)) {
-				for (Artifact library : links.keySet())
-					for (Artifact client : links.get(library))
-						writer.write(String.format("%s,%s%n", library, client));
-			} catch (IOException e) {
-				logger.error("Couldn't write CSV", e);
-			}
+		// Serialize a simple CSV with links between libraries and clients
+		Path csv = Paths.get(datasetPath + "/links.csv");
+		try (BufferedWriter writer = Files.newBufferedWriter(csv, StandardCharsets.UTF_8)) {
+			for (Artifact library : links.keySet())
+				for (Artifact client : links.get(library))
+					writer.write(String.format("%s,%s%n", library, client));
 		} catch (IOException e) {
-			logger.error(e);
+			logger.error("Couldn't write CSV", e);
 		}
 	}
 
-	private Table<Artifact, String, String> getVersionMatrix() {
+	private Table<Artifact, String, String> computeVersionMatrix() {
 		Table<Artifact, String, String> result = HashBasedTable.create();
+
 		for (Artifact version : libraries) {
 			for (Artifact client : links.get(version)) {
 				String temp = String.format("%s:%s", client.getGroupId(), client.getArtifactId());
@@ -177,7 +174,7 @@ public class MavenDataset {
 	}
 
 	public void writeM3s() {
-		try (Stream<Path> paths = Files.walk(Paths.get(downloadPath))) {
+		try (Stream<Path> paths = Files.walk(Paths.get(datasetPath))) {
 			paths.filter(p -> p.toFile().isFile() && p.toString().endsWith(".jar")).forEach(p -> {
 				try {
 					String jar = p.toAbsolutePath().toString();
