@@ -27,6 +27,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
+
 /**
  * The Local collector uses a pre-computed dependency graph of Maven Central
  * available at https://zenodo.org/record/1489120 to gather all information
@@ -34,6 +35,7 @@ import com.google.common.collect.Multimap;
  */
 public class LocalCollector implements MavenCollector {
 	private static final String DATASET_PATH = "dataset/";
+	private static final String VERSIONS_FILE = DATASET_PATH + "next_all.csv";
 	private static final String DATASET_FILE = DATASET_PATH + "links_all.csv";
 	private static final String REMOTE_DATASET = "https://zenodo.org/record/1489120/files/maven-data.csv.tar.xz";
 
@@ -47,22 +49,23 @@ public class LocalCollector implements MavenCollector {
 	public List<Artifact> collectAvailableVersions(String coordinates) {
 		List<Artifact> ret = new ArrayList<>();
 
-		logger.info("Looking for {} versions in {}", coordinates, DATASET_FILE);
-		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
+		logger.info("Looking for {} versions in {}", coordinates, VERSIONS_FILE);
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(VERSIONS_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
-				// Each line in the form "source","target","scope"
+				// Each line in the form "source","target"
 				String line = it.nextLine();
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
-
+				String target = fields[1].replaceAll("\"", "");
 				if (source.startsWith(coordinates)) {
-					Artifact found = new DefaultArtifact(source);
-
-					if (!ret.contains(found))
-						ret.add(found);
+					Artifact older = new DefaultArtifact(source);
+					Artifact newer = new DefaultArtifact(target);
+					if (!ret.contains(older))
+						ret.add(older);
+					if (!ret.contains(newer))
+						ret.add(newer);
 				}
 			}
-
 			return ret;
 		} catch (IOException e) {
 			logger.error("Couldn't read dataset", e);
