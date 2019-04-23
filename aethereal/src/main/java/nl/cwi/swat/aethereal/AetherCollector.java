@@ -130,9 +130,9 @@ public class AetherCollector implements MavenCollector {
 				descriptorResult = system.readArtifactDescriptor(tmpSession, descriptorRequest);
 			} catch (Exception e) {
 				// We got kicked probably
-				logger.error("We got kicked from Maven Central. Waiting 10s");
+				logger.error("We got kicked from Maven Central. Waiting 1min");
 				try {
-					Thread.sleep(10000);
+					Thread.sleep(1000 * 60);
 				} catch (InterruptedException ee) {
 					logger.error(ee);
 					Thread.currentThread().interrupt();
@@ -154,9 +154,9 @@ public class AetherCollector implements MavenCollector {
 				doc = Jsoup.connect(String.format(MVN_REPOSITORY_USAGE_PAGE, groupId, artifactId, version, page))
 						.timeout(10000).get();
 			} catch (Exception e) {
-				logger.error("We got kicked from mvnrepository.com. Waiting 10s.");
+				logger.error("We got kicked from mvnrepository.com. Waiting 1min.");
 				try {
-					Thread.sleep(10000);
+					Thread.sleep(1000 * 60);
 				} catch (InterruptedException ee) {
 					logger.error(ee);
 					Thread.currentThread().interrupt();
