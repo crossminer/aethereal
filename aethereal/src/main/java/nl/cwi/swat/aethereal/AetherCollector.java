@@ -148,7 +148,7 @@ public class AetherCollector implements MavenCollector {
 
 				// Either the artifact doesn't exist on Central, or we got kicked
 				if (root instanceof ArtifactNotFoundException) {
-					logger.warn("Artifact %s retrieved from mvnrepository.com doesn't exist on Maven Central.", client);
+					logger.warn("Artifact {} retrieved from mvnrepository.com doesn't exist on Maven Central.", client);
 					// We won't get it ever
 					break;
 				} else if (root instanceof NoRouteToHostException) {
