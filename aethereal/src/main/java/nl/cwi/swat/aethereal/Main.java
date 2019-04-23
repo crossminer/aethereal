@@ -57,6 +57,10 @@ public class Main {
 				.builder("m3")
 				.desc("Serialize the M3 models of all JARs")
 				.build())
+			.addOption(Option
+				.builder("pvm")
+				.desc("Serialize the plugin version matrix as csv")
+				.build())
 			.addOptionGroup(method);
 
 		try {
@@ -79,6 +83,8 @@ public class Main {
 			if (cmd.hasOption("m3")) {
 				dt.writeM3s();
 			}
+			if (cmd.hasOption("pvm"))
+				dt.exportPluginVersionMatrix();
 		} catch (ParseException e) {
 			logger.error(e.getMessage());
 			formatter.printHelp("aethereal", opts);

@@ -6,6 +6,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -15,7 +17,10 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.artifact.Artifact;
 
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Table;
 
 import nl.cwi.swat.aethereal.rascal.RascalM3;
 
@@ -25,9 +30,11 @@ public class MavenDataset {
 	private MavenCollector collector;
 	private AetherDownloader downloader = new AetherDownloader();
 	private RascalM3 m3 = new RascalM3();
+	Set<String> clients = new HashSet<String>();
+
 	private List<Artifact> libraries;
 	private Multimap<Artifact, Artifact> links;
-
+	private Table<Artifact, String, String> versionMatrix;
 	private static final Logger logger = LogManager.getLogger(MavenDataset.class);
 
 	public MavenDataset(String coordinates, MavenCollector collector, String path) {
@@ -44,6 +51,9 @@ public class MavenDataset {
 
 		links = collector.collectClientsOf(coordinates);
 		logger.info("Found {} clients for all versions", links.size());
+
+		versionMatrix = getVersionMatrix();
+		logger.info("Computed the plugin version matrix");
 	}
 
 	public void printStats() {
@@ -66,6 +76,54 @@ public class MavenDataset {
 		int min = libraries.stream().mapToInt(a -> links.get(a).size()).min().getAsInt();
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
+		
+		getMostMigratedVersions();
+	}
+
+	private void getMostMigratedVersions() {
+		List<Set<String>> loaded = new ArrayList<Set<String>>();
+		for (Artifact library : libraries) {
+			Set<String> s = new HashSet<String>();
+			for (String client : clients)
+				if (versionMatrix.get(library, client) != null)
+					s.add(client);
+			loaded.add(s);
+		}
+		int value = 0;
+		String v1 = "";
+		String v2 = "";
+		for (int i = 0; i < loaded.size(); i++)
+			for (int j = i + 1; j < loaded.size() - 1; j++) {
+				int currentVal = Sets.intersection(loaded.get(i), loaded.get(j)).size();
+				value = currentVal > value ? currentVal : value;
+				v1 = libraries.get(i).getVersion();
+				v2 = libraries.get(j).getVersion();
+			}
+		logger.info("{} - {} : {}", v1, v2, value);
+		return;
+	}
+
+	public void exportPluginVersionMatrix() {
+		if (versionMatrix == null)
+			versionMatrix = getVersionMatrix();
+		Path path = Paths.get("dataset/pluginMatrix.csv");
+
+		// Use try-with-resource to get auto-closeable writer instance
+		try (BufferedWriter writer = Files.newBufferedWriter(path)) {
+			writer.write(",");
+			for (String client : clients)
+				writer.write(client + ",");
+			writer.newLine();
+			for (Artifact library : libraries) {
+				writer.write(library.getVersion() + ",");
+				for (String client : clients)
+					writer.write((versionMatrix.get(library, client) == null ? "" : versionMatrix.get(library, client))
+							+ ",");
+				writer.newLine();
+			}
+		} catch (IOException e) {
+			logger.error("CSV writer error" + e.getMessage());
+		}
 	}
 
 	public void download() {
@@ -92,6 +150,18 @@ public class MavenDataset {
 		}
 	}
 
+	private Table<Artifact, String, String> getVersionMatrix() {
+		Table<Artifact, String, String> result = HashBasedTable.create();
+		for (Artifact version : libraries) {
+			for (Artifact client : links.get(version)) {
+				String temp = String.format("%s:%s", client.getGroupId(), client.getArtifactId());
+				result.put(version, temp, client.getVersion());
+				clients.add(temp);
+			}
+		}
+		return result;
+	}
+
 	public void writeM3s() {
 		try (Stream<Path> paths = Files.walk(Paths.get(downloadPath))) {
 			paths.filter(p -> p.toFile().isFile() && p.toString().endsWith(".jar")).forEach(p -> {
@@ -109,4 +179,5 @@ public class MavenDataset {
 			logger.error(e);
 		}
 	}
+
 }
