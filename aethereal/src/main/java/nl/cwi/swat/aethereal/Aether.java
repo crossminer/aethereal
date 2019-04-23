@@ -49,6 +49,10 @@ public class Aether {
 	}
 
 	public static String toCoordinates(Artifact artifact) {
-		return artifact.getGroupId() + ":" + artifact.getArtifactId() + ":" + artifact.getVersion();
+		return String.format("%s:%s:%s", artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion());
+	}
+
+	public static String toUnversionedCoordinates(Artifact artifact) {
+		return String.format("%s:%s", artifact.getGroupId(), artifact.getArtifactId());
 	}
 }

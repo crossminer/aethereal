@@ -17,6 +17,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.artifact.Artifact;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -31,10 +32,10 @@ public class MavenDataset {
 	private MavenCollector collector;
 	private AetherDownloader downloader = new AetherDownloader();
 	private RascalM3 m3 = new RascalM3();
-	Set<String> clients = new HashSet<String>();
 
-	private List<Artifact> libraries;
-	private Multimap<Artifact, Artifact> links;
+	private List<Artifact> libraries = new ArrayList<>();
+	private Set<String> unversionedClients = new HashSet<>();
+	private Multimap<Artifact, Artifact> links = ArrayListMultimap.create();
 	private Table<Artifact, String, String> versionMatrix;
 	private static final Logger logger = LogManager.getLogger(MavenDataset.class);
 
@@ -54,6 +55,7 @@ public class MavenDataset {
 		logger.info("Found {} versions", libraries.size());
 
 		links = collector.collectClientsOf(coordinates);
+		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
 		logger.info("Found {} clients for all versions", links.size());
 
 		versionMatrix = computeVersionMatrix();
@@ -81,18 +83,19 @@ public class MavenDataset {
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
 
-		getMostMigratedVersions();
+		printMostMigratedVersions();
 	}
 
-	private void getMostMigratedVersions() {
-		List<Set<String>> loaded = new ArrayList<Set<String>>();
+	private void printMostMigratedVersions() {
+		List<Set<String>> loaded = new ArrayList<>();
 		for (Artifact library : libraries) {
-			Set<String> s = new HashSet<String>();
-			for (String client : clients)
+			Set<String> s = new HashSet<>();
+			for (String client : unversionedClients)
 				if (versionMatrix.get(library, client) != null)
 					s.add(client);
 			loaded.add(s);
 		}
+
 		int value = 0;
 		String v1 = "";
 		String v2 = "";
@@ -100,6 +103,7 @@ public class MavenDataset {
 			for (int j = i + 1; j < loaded.size() - 1; j++) {
 				SetView<String> intersection = Sets.intersection(loaded.get(i), loaded.get(j));
 				int currentVal = 0;
+
 				for (String client : intersection) {
 					if (!versionMatrix.get(libraries.get(i), client)
 							.equals(versionMatrix.get(libraries.get(j), client)))
@@ -108,14 +112,11 @@ public class MavenDataset {
 
 				if (currentVal > value) {
 					value = currentVal;
-					v1 = String.format("%s:%s:%s", libraries.get(i).getGroupId(), libraries.get(i).getArtifactId(),
-							libraries.get(i).getVersion());
-					v2 = String.format("%s:%s:%s", libraries.get(j).getGroupId(), libraries.get(j).getArtifactId(),
-							libraries.get(j).getVersion());
+					v1 = Aether.toCoordinates(libraries.get(i));
+					v2 = Aether.toCoordinates(libraries.get(j));
 				}
 			}
-		logger.info("{} - {} : {}", v1, v2, value);
-		return;
+		logger.info("{} migrations between {} and {}", value, v1, v2);
 	}
 
 	public void writeVersionMatrix() {
@@ -126,14 +127,14 @@ public class MavenDataset {
 		try (BufferedWriter writer = Files.newBufferedWriter(path)) {
 			// Header in the form ", client1, client2, ..."
 			writer.write(",");
-			writer.write(clients.stream().collect(Collectors.joining(",")));
+			writer.write(unversionedClients.stream().collect(Collectors.joining(",")));
 			writer.newLine();
 
 			// Rows in the form "libversion, client1version, client2version, ..."
 			for (Artifact library : libraries) {
 				writer.write(library.getVersion() + ",");
-				writer.write(clients.stream()
-						.map(c -> versionMatrix.contains(library, c) ? "" : versionMatrix.get(library, c))
+				writer.write(unversionedClients.stream()
+						.map(c -> versionMatrix.contains(library, c) ? versionMatrix.get(library, c) : "")
 						.collect(Collectors.joining(",")));
 				writer.newLine();
 			}
@@ -163,13 +164,13 @@ public class MavenDataset {
 	private Table<Artifact, String, String> computeVersionMatrix() {
 		Table<Artifact, String, String> result = HashBasedTable.create();
 
-		for (Artifact version : libraries) {
-			for (Artifact client : links.get(version)) {
-				String temp = String.format("%s:%s", client.getGroupId(), client.getArtifactId());
-				result.put(version, temp, client.getVersion());
-				clients.add(temp);
+		for (Artifact library : libraries) {
+			for (Artifact client : links.get(library)) {
+				String unversionedClient = Aether.toUnversionedCoordinates(client);
+				result.put(library, unversionedClient, client.getVersion());
 			}
 		}
+
 		return result;
 	}
 
