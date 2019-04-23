@@ -93,6 +93,7 @@ public class AetherCollector implements MavenCollector {
 							logger.info("{} does match", client);
 							match = true;
 							res.add(client);
+							break;
 						}
 					}
 
