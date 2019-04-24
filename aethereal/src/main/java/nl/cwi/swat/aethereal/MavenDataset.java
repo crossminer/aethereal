@@ -30,7 +30,7 @@ public class MavenDataset {
 	private String coordinates;
 	private String datasetPath;
 	private MavenCollector collector;
-	private AetherDownloader downloader = new AetherDownloader();
+	private AetherDownloader downloader;
 	private RascalM3 m3 = new RascalM3();
 
 	private List<Artifact> libraries = new ArrayList<>();
@@ -39,10 +39,11 @@ public class MavenDataset {
 	private Table<Artifact, String, String> versionMatrix = HashBasedTable.create();
 	private static final Logger logger = LogManager.getLogger(MavenDataset.class);
 
-	public MavenDataset(String coordinates, MavenCollector collector, String path) {
+	public MavenDataset(String coordinates, String path, MavenCollector collector, AetherDownloader downloader) {
 		this.coordinates = coordinates;
 		this.collector = collector;
 		this.datasetPath = path;
+		this.downloader = downloader;
 	}
 
 	public void build() throws IOException {

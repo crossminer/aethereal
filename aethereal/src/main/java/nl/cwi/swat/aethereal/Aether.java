@@ -15,8 +15,8 @@ import org.eclipse.aether.transport.file.FileTransporterFactory;
 import org.eclipse.aether.transport.http.HttpTransporterFactory;
 
 public class Aether {
-	public static final String LOCAL_REPO = "local-repo";
-	public static final String REMOTE_URL = "http://repo1.maven.org/maven2/";
+	public static String LOCAL_REPO = "local-repo";
+	public static String REMOTE_URL = "http://repo1.maven.org/maven2/";
 
 	private Aether() {
 

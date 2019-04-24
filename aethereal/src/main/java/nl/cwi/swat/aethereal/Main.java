@@ -1,6 +1,8 @@
 package nl.cwi.swat.aethereal;
 
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.Properties;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -20,61 +22,45 @@ public class Main {
 		HelpFormatter formatter = new HelpFormatter();
 
 		OptionGroup method = new OptionGroup()
-			.addOption(Option
-				.builder("remote")
-				.desc("Fetch artifact information from Maven Central / mvnrepository.com")
-				.build())
-			.addOption(Option
-				.builder("local")
-				.desc("Fetch artifact information from a local copy of the Maven Dependency Graph")
-				.build());
+				.addOption(Option.builder("remote")
+						.desc("Fetch artifact information from Maven Central / mvnrepository.com").build())
+				.addOption(Option.builder("local")
+						.desc("Fetch artifact information from a local copy of the Maven Dependency Graph").build());
 		method.setRequired(true);
 
 		Options opts = new Options()
-			.addOption(Option
-				.builder("groupId")
-				.desc("groupId of the artifact to be analyzed")
-				.hasArg()
-				.argName("groupId")
-				.required()
-				.build())
-			.addOption(Option
-				.builder("artifactId")
-				.desc("artifactId of the artifact to be analyzed")
-				.hasArg()
-				.argName("artifactId")
-				.required()
-				.build())
-			.addOption(Option
-				.builder("download")
-				.desc("Download all JARs locally")
-				.build())
-			.addOption(Option
-				.builder("datasetPath")
-				.hasArg()
-				.argName("path")
-				.desc("Relative path to where the dataset should be stored (default is 'dataset')")
-				.build())
-			.addOption(Option
-				.builder("m3")
-				.desc("Serialize the M3 models of all JARs")
-				.build())
-			.addOption(Option
-				.builder("csv")
-				.desc("Serialize the version matrix as csv")
-				.build())
-			.addOptionGroup(method);
+				.addOption(Option.builder("groupId").desc("groupId of the artifact to be analyzed").hasArg()
+						.argName("groupId").required().build())
+				.addOption(Option.builder("artifactId").desc("artifactId of the artifact to be analyzed").hasArg()
+						.argName("artifactId").required().build())
+				.addOption(Option.builder("download").desc("Download all JARs locally").build())
+				.addOption(Option.builder("datasetPath").hasArg().argName("path")
+						.desc("Relative path to where the dataset should be stored (default is 'dataset')").build())
+				.addOption(Option.builder("m3").desc("Serialize the M3 models of all JARs").build())
+				.addOption(Option.builder("csv").desc("Serialize the version matrix as csv").build())
+				.addOptionGroup(method);
 
-		try {
+		try (FileInputStream fis = new FileInputStream("aethereal.properties")) {
 			CommandLineParser parser = new DefaultParser();
 			CommandLine cmd = parser.parse(opts, args);
+			Properties props = new Properties();
+			props.load(fis);
 
-			MavenCollector collector = cmd.hasOption("remote") ? new AetherCollector() : new LocalCollector();
+			if (props.containsKey("remote")) {
+				Aether.REMOTE_URL = props.getProperty("remote");
+			}
+
+			int aetherQps = Integer.parseInt(props.getProperty("aether.qps", "4"));
+			int jsoupQps = Integer.parseInt(props.getProperty("jsoup.qps", "4"));
+
+			MavenCollector collector = cmd.hasOption("remote") ? new AetherCollector(aetherQps, jsoupQps)
+					: new LocalCollector();
+			AetherDownloader downloader = new AetherDownloader(aetherQps);
 			String coordinates = String.format("%s:%s", cmd.getOptionValue("groupId"),
 					cmd.getOptionValue("artifactId"));
 
 			String path = cmd.getOptionValue("datasetPath", "dataset");
-			MavenDataset dt = new MavenDataset(coordinates, collector, path);
+			MavenDataset dt = new MavenDataset(coordinates, path, collector, downloader);
 			dt.build();
 			dt.printStats();
 

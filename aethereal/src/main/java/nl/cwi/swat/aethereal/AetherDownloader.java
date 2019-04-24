@@ -20,14 +20,15 @@ public class AetherDownloader {
 	private RepositorySystemSession session;
 	private RemoteRepository repository;
 
-	private RateLimiter aetherLimiter = RateLimiter.create(2.5); // Black magic
+	private RateLimiter aetherLimiter;
 
 	private static final Logger logger = LogManager.getLogger(AetherDownloader.class);
 
-	public AetherDownloader() {
+	public AetherDownloader(int aetherQps) {
 		system = Aether.newRepositorySystem();
 		session = Aether.newSession(system);
 		repository = Aether.newRemoteRepository();
+		aetherLimiter = RateLimiter.create(aetherQps);
 	}
 
 	public Artifact downloadArtifactTo(Artifact artifact, String repositoryPath) {

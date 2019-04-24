@@ -42,12 +42,17 @@ public class AetherCollector implements MavenCollector {
 	private RepositorySystemSession session = Aether.newSession(system);
 	private RemoteRepository repository = Aether.newRemoteRepository();
 
-	private RateLimiter aetherLimiter = RateLimiter.create(2.5); // Black magic
-	private RateLimiter jsoupLimiter = RateLimiter.create(2.0);
+	private RateLimiter aetherLimiter;
+	private RateLimiter jsoupLimiter;
 
 	private static final String MVN_REPOSITORY_USAGE_PAGE = "https://mvnrepository.com/artifact/%s/%s/%s/usages?p=%d";
 
 	private static final Logger logger = LogManager.getLogger(AetherCollector.class);
+
+	public AetherCollector(int aetherQps, int jsoupQps) {
+		this.aetherLimiter = RateLimiter.create(aetherQps);
+		this.jsoupLimiter = RateLimiter.create(jsoupQps);
+	}
 
 	@Override
 	public List<Artifact> collectAvailableVersions(String coordinates) {
