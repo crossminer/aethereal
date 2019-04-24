@@ -72,7 +72,7 @@ public class AetherDownloader {
 			}
 		}
 
-		return artifactResult.getArtifact();
+		return artifactResult != null ? artifactResult.getArtifact() : null;
 	}
 
 	public Artifact downloadArtifact(Artifact artifact) {
