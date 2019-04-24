@@ -1,9 +1,11 @@
 package nl.cwi.swat.aethereal;
 
+import java.net.NoRouteToHostException;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.RepositorySystem;
@@ -11,7 +13,9 @@ import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
+import org.eclipse.aether.transfer.ArtifactNotFoundException;
 
 import com.google.common.util.concurrent.RateLimiter;
 
@@ -42,20 +46,28 @@ public class AetherDownloader {
 		ArtifactResult artifactResult = null;
 		while (artifactResult == null) {
 			try {
-				// Limit to 1 call / second
+				// Throttle connections with Maven Central
 				aetherLimiter.acquire();
 				if (repositoryPath != null)
 					artifactResult = system.resolveArtifact(Aether.newSession(system, repositoryPath), request);
 				else
 					artifactResult = system.resolveArtifact(session, request);
-			} catch (Exception e) {
-				// We got kicked probably
-				logger.error("We got kicked from Maven Central. Waiting 10s");
-				try {
-					Thread.sleep(10000);
-				} catch (InterruptedException ee) {
-					logger.error(ee);
-					Thread.currentThread().interrupt();
+			} catch (ArtifactResolutionException e) {
+				Throwable root = ExceptionUtils.getRootCause(e);
+
+				// Either the artifact doesn't exist on Central, or we got kicked
+				if (root instanceof ArtifactNotFoundException) {
+					logger.warn("Artifact {} not found on Maven Central.", artifact);
+					// We won't get it ever
+					break;
+				} else if (root instanceof NoRouteToHostException) {
+					logger.warn("We got kicked from Maven Central. Waiting 30s.", e);
+					try {
+						Thread.sleep(1000 * 30);
+					} catch (InterruptedException ee) {
+						logger.error(ee);
+						Thread.currentThread().interrupt();
+					}
 				}
 			}
 		}
