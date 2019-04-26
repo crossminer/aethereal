@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -16,6 +17,7 @@ import java.util.stream.Stream;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
 
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.Multimap;
@@ -38,6 +40,10 @@ public class MavenDataset {
 	private Table<Artifact, String, String> versionMatrix;
 	private static final Logger logger = LogManager.getLogger(MavenDataset.class);
 
+	private Artifact libV1;
+	private Artifact libV2;
+	private Collection<Artifact> dowloadLibs;
+	
 	public MavenDataset(String coordinates, MavenCollector collector, String path) {
 		this.coordinates = coordinates;
 		this.collector = collector;
@@ -97,10 +103,14 @@ public class MavenDataset {
 			for (int j = i + 1; j < loaded.size() - 1; j++) {
 				SetView<String> intersection = Sets.intersection(loaded.get(i), loaded.get(j));
 				int currentVal = 0;
+				List<Artifact> downloadTemp = new ArrayList<Artifact>();
 				for (String client : intersection) {
 					if(!versionMatrix.get(libraries.get(i), client)
-							.equals(versionMatrix.get(libraries.get(j), client)))
+							.equals(versionMatrix.get(libraries.get(j), client))) {
 						currentVal ++;
+						downloadTemp.add(new DefaultArtifact(client + ":" + versionMatrix.get(libraries.get(i), client)));
+						downloadTemp.add(new DefaultArtifact(client + ":" + versionMatrix.get(libraries.get(j), client)));
+					}
 				}
 				
 				if (currentVal > value) {
@@ -111,9 +121,14 @@ public class MavenDataset {
 					v2 = String.format("%s:%s:%s",libraries.get(j).getGroupId(), 
 							libraries.get(j).getArtifactId(), 
 							libraries.get(j).getVersion());
+					libV1 = libraries.get(i);
+					libV2 = libraries.get(j);
+					dowloadLibs = downloadTemp;
+					
 				}
 			}
-		logger.info("{} - {} : {}", v1, v2, value);
+		
+		logger.info("{} - {} : {}",  v1, v2, value);
 		return;
 	}
 
@@ -142,10 +157,10 @@ public class MavenDataset {
 
 	public void download() {
 		// Download libraries
-		downloader.downloadAllArtifactsTo(libraries, downloadPath + "/libraries");
-
+		downloader.downloadArtifactTo(libV1, downloadPath + "/libraries");
+		downloader.downloadArtifactTo(libV2, downloadPath + "/libraries");
 		// Download clients
-		downloader.downloadAllArtifactsTo(links.values(), downloadPath + "/clients");
+		downloader.downloadAllArtifactsTo(dowloadLibs, downloadPath + "/clients");
 
 		// Serialize a simple csv with links between libraries and clients
 		Path csv = Paths.get(downloadPath + "/links.csv");
