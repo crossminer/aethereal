@@ -61,6 +61,25 @@ public class MavenDataset {
 		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
 		logger.info("Found {} clients for all versions", links.size());
 
+		versionMatrix = computeVersionMatrix();
+		logger.info("Computed the plugin version matrix");
+	}
+	public void build(String v1, String v2) throws IOException {
+		logger.info("Building dataset for {}", coordinates);
+
+		logger.info("Creating output folder {}", datasetPath);
+		Files.createDirectories(Paths.get(datasetPath));
+
+		if(collector.checkArtifact(String.format("%s:%s", coordinates, v1)))
+			libraries.add(new DefaultArtifact(String.format("%s:%s", coordinates,v1)));
+		if(collector.checkArtifact(String.format("%s:%s", coordinates, v2)))
+			libraries.add(new DefaultArtifact(String.format("%s:%s", coordinates,v2)));
+		logger.info("Found {} versions", libraries.size());
+
+		links = collector.collectClientsOf(coordinates, v1, v2);
+		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
+		logger.info("Found {} clients for all versions", links.size());
+
 
 		versionMatrix = computeVersionMatrix();
 		logger.info("Computed the plugin version matrix");
@@ -104,8 +123,8 @@ public class MavenDataset {
 		}
 
 		List<MigrationInfo> candidates = new ArrayList<>();
-		for (int i = 0; i < loaded.size(); i++) {
-			for (int j = i + 1; j < loaded.size() - 1; j++) {
+		for (int i = 0; i < loaded.size() - 1; i++) {
+			for (int j = i + 1; j < loaded.size(); j++) {
 				SetView<String> intersection = Sets.intersection(loaded.get(i), loaded.get(j));
 				
 				int currentVal = 0;

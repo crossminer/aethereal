@@ -215,4 +215,16 @@ public class AetherCollector implements MavenCollector {
 
 		return res;
 	}
+
+	@Override
+	public boolean checkArtifact(String coordinate) {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates, String v1, String v2) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 }

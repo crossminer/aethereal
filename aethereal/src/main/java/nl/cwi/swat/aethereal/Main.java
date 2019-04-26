@@ -39,8 +39,12 @@ public class Main {
 						.desc("Relative path to where the dataset should be stored (default is 'dataset')").build())
 				.addOption(Option.builder("m3").desc("Serialize the M3 models of all JARs").build())
 				.addOption(Option.builder("csv").desc("Serialize the version matrix as csv").build())
-				.addOptionGroup(method);
-
+				.addOptionGroup(method)
+				.addOption(Option.builder("v1").hasArg().argName("libV1")
+						.desc("Initial version of the library").build())
+				.addOption(Option.builder("v2").hasArg().argName("libV2")
+						.desc("Evolved version of the library").build());
+		
 
 		try (FileInputStream fis = new FileInputStream("aethereal.properties")) {
 			CommandLineParser parser = new DefaultParser();
@@ -63,7 +67,13 @@ public class Main {
 
 			String path = cmd.getOptionValue("datasetPath", "dataset");
 			MavenDataset dt = new MavenDataset(coordinates, path, collector, downloader);
-			dt.build();
+			if(cmd.hasOption("v1") && cmd.hasOption("v2")) {
+				String v1 = cmd.getOptionValue("v1", "libV1");
+				String v2 = cmd.getOptionValue("v2", "libV2");
+				dt.build(v1,v2);
+			} else {
+				dt.build();
+			}
 			dt.printStats();
 
 			if (cmd.hasOption("csv")) 
