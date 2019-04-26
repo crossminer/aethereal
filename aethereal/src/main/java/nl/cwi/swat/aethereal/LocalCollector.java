@@ -34,9 +34,10 @@ import com.google.common.collect.Multimap;
  * about artifacts locally.
  */
 public class LocalCollector implements MavenCollector {
-	private static final String DATASET_PATH = "dataset/";
+
+	private static final String DATASET_PATH = "dependency-graph/";
 	private static final String VERSIONS_FILE = DATASET_PATH + "next_all.csv";
-	private static final String DATASET_FILE = DATASET_PATH + "links_all.csv";
+	private static final String LINKS_FILE = DATASET_PATH + "links_all.csv";
 	private static final String REMOTE_DATASET = "https://zenodo.org/record/1489120/files/maven-data.csv.tar.xz";
 
 	private static final Logger logger = LogManager.getLogger(LocalCollector.class);
@@ -57,7 +58,8 @@ public class LocalCollector implements MavenCollector {
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
-				if (source.startsWith(coordinates)) {
+				// ':' included to avoid matching source[-more-text]
+				if (source.startsWith(coordinates + ":")) {
 					Artifact older = new DefaultArtifact(source);
 					Artifact newer = new DefaultArtifact(target);
 					if (!ret.contains(older))
@@ -68,7 +70,7 @@ public class LocalCollector implements MavenCollector {
 			}
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read dataset", e);
+			logger.error("Couldn't read {}", VERSIONS_FILE, e);
 			return Lists.newArrayList();
 		}
 	}
@@ -77,23 +79,24 @@ public class LocalCollector implements MavenCollector {
 	public List<Artifact> collectClientsOf(Artifact artifact) {
 		List<Artifact> ret = new ArrayList<>();
 
-		logger.info("Looking for clients of {} in {}", artifact, DATASET_FILE);
-		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
+		logger.info("Looking for clients of {} in {}", artifact, LINKS_FILE);
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
 				String line = it.nextLine();
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
+				String scope = fields[2].replaceAll("\"", "");
 
-				if (target.equals(Aether.toCoordinates(artifact))) {
+				if (target.equals(Aether.toCoordinates(artifact)) && scope.equals("Compile")) {
 					ret.add(new DefaultArtifact(source));
 				}
 			}
 
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read dataset", e);
+			logger.error("Couldn't read {}", LINKS_FILE, e);
 			return Lists.newArrayList();
 		}
 	}
@@ -102,34 +105,40 @@ public class LocalCollector implements MavenCollector {
 	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates) {
 		Multimap<Artifact, Artifact> ret = ArrayListMultimap.create();
 
-		logger.info("Looking for clients of any version of {} in {}", coordinates, DATASET_FILE);
-		try (LineIterator it = FileUtils.lineIterator(Paths.get(DATASET_FILE).toFile(), "UTF-8")) {
+		logger.info("Looking for clients of any version of {} in {}", coordinates, LINKS_FILE);
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
 				String line = it.nextLine();
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
+				String scope = fields[2].replaceAll("\"", "");
 
-				if (target.startsWith(coordinates + ":")) {
+				if (target.startsWith(coordinates + ":") && scope.equals("Compile")) {
 					ret.put(new DefaultArtifact(target), new DefaultArtifact(source));
 				}
 			}
 
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read dataset", e);
+			logger.error("Couldn't read {}", LINKS_FILE, e);
 			return null;
 		}
 	}
 
+	@Override
+	public List<Artifact> collectLibrariesMatching(MavenCollectorQuery query) {
+		throw new UnsupportedOperationException("Not yet");
+	}
+
 	private void retrieveDataset() {
 		if (datasetExists()) {
-			logger.info("Local dataset found. Skipping download.");
+			logger.info("Maven Dependency Graph found. Skipping download.");
 			return;
 		}
 
-		logger.warn("Couldn't find local dataset. I will download and extract it for you (~1.1GB).");
+		logger.warn("Couldn't find the Maven Dependency Graph. I will download and extract it for you (~1.1GB).");
 
 		try {
 			logger.warn("Downloading archive from {} to {}", REMOTE_DATASET, DATASET_PATH);
@@ -144,10 +153,16 @@ public class LocalCollector implements MavenCollector {
 				ArchiveEntry entry = null;
 				while ((entry = arch.getNextEntry()) != null) {
 					if (entry.getName().equals("maven-data.csv/links_all.csv")) {
-						try (OutputStream o = Files.newOutputStream(Paths.get(DATASET_FILE))) {
+						try (OutputStream o = Files.newOutputStream(Paths.get(LINKS_FILE))) {
 							IOUtils.copy(arch, o);
 						} catch (IOException e) {
-							logger.error("Couldn't open destination file", e);
+							logger.error("Couldn't write destination file", e);
+						}
+					} else if (entry.getName().equals("maven-data.csv/next_all.csv")) {
+						try (OutputStream o = Files.newOutputStream(Paths.get(VERSIONS_FILE))) {
+							IOUtils.copy(arch, o);
+						} catch (IOException e) {
+							logger.error("Couldn't write destination file", e);
 						}
 					}
 				}
@@ -160,6 +175,6 @@ public class LocalCollector implements MavenCollector {
 	}
 
 	private boolean datasetExists() {
-		return Paths.get(DATASET_FILE).toFile().exists();
+		return Paths.get(LINKS_FILE).toFile().exists() && Paths.get(VERSIONS_FILE).toFile().exists();
 	}
 }

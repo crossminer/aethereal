@@ -1,11 +1,14 @@
 package nl.cwi.swat.aethereal;
 
 import java.io.IOException;
+import java.net.NoRouteToHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.RepositorySystem;
@@ -14,11 +17,13 @@ import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.graph.Dependency;
 import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactDescriptorException;
 import org.eclipse.aether.resolution.ArtifactDescriptorRequest;
 import org.eclipse.aether.resolution.ArtifactDescriptorResult;
 import org.eclipse.aether.resolution.VersionRangeRequest;
 import org.eclipse.aether.resolution.VersionRangeResolutionException;
 import org.eclipse.aether.resolution.VersionRangeResult;
+import org.eclipse.aether.transfer.ArtifactNotFoundException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
@@ -37,12 +42,17 @@ public class AetherCollector implements MavenCollector {
 	private RepositorySystemSession session = Aether.newSession(system);
 	private RemoteRepository repository = Aether.newRemoteRepository();
 
-	private RateLimiter aetherLimiter = RateLimiter.create(2.5); // Black magic
-	private RateLimiter jsoupLimiter = RateLimiter.create(4.0);
+	private RateLimiter aetherLimiter;
+	private RateLimiter jsoupLimiter;
 
 	private static final String MVN_REPOSITORY_USAGE_PAGE = "https://mvnrepository.com/artifact/%s/%s/%s/usages?p=%d";
 
 	private static final Logger logger = LogManager.getLogger(AetherCollector.class);
+
+	public AetherCollector(int aetherQps, int jsoupQps) {
+		this.aetherLimiter = RateLimiter.create(aetherQps);
+		this.jsoupLimiter = RateLimiter.create(jsoupQps);
+	}
 
 	@Override
 	public List<Artifact> collectAvailableVersions(String coordinates) {
@@ -76,6 +86,8 @@ public class AetherCollector implements MavenCollector {
 					1);
 
 			// Then, look for available versions via Aether
+			// Keep in mind that artifacts on mvnrepository.com may be != artifacts on Maven
+			// Central
 			for (String coordinates : parsed) {
 				logger.info("Looking for matching client versions for {}", coordinates);
 				List<Artifact> allVersions = collectAvailableVersions(coordinates);
@@ -85,8 +97,11 @@ public class AetherCollector implements MavenCollector {
 					// If 'client' has 'artifact' as a direct dependency, we have a match
 					List<Dependency> dependencies = getDependencies(client, tmpSession);
 					for (Dependency dependency : dependencies) {
-						if (artifact.toString().equals(dependency.getArtifact().toString())) {
+						if (artifact.toString().equals(dependency.getArtifact().toString())
+								&& dependency.getScope().equals("compile")) {
+							logger.info("{} does match", client);
 							res.add(client);
+							break;
 						}
 					}
 				}
@@ -117,6 +132,11 @@ public class AetherCollector implements MavenCollector {
 		return res;
 	}
 
+	@Override
+	public List<Artifact> collectLibrariesMatching(MavenCollectorQuery query) {
+		throw new UnsupportedOperationException("Not yet");
+	}
+
 	private List<Dependency> getDependencies(Artifact client, RepositorySystemSession tmpSession) {
 		ArtifactDescriptorRequest descriptorRequest = new ArtifactDescriptorRequest();
 		descriptorRequest.setArtifact(client);
@@ -125,22 +145,30 @@ public class AetherCollector implements MavenCollector {
 		ArtifactDescriptorResult descriptorResult = null;
 		while (descriptorResult == null) {
 			try {
-				// Limit to 1 call / second
+				// Throttle connections with Maven Central
 				aetherLimiter.acquire();
 				descriptorResult = system.readArtifactDescriptor(tmpSession, descriptorRequest);
-			} catch (Exception e) {
-				// We got kicked probably
-				logger.error("We got kicked from Maven Central. Waiting 10s");
-				try {
-					Thread.sleep(10000);
-				} catch (InterruptedException ee) {
-					logger.error(ee);
-					Thread.currentThread().interrupt();
+			} catch (ArtifactDescriptorException e) {
+				Throwable root = ExceptionUtils.getRootCause(e);
+
+				// Either the artifact doesn't exist on Central, or we got kicked
+				if (root instanceof ArtifactNotFoundException) {
+					logger.warn("Artifact {} retrieved from mvnrepository.com doesn't exist on Maven Central.", client);
+					// We won't get it ever
+					break;
+				} else if (root instanceof NoRouteToHostException) {
+					logger.warn("We got kicked from Maven Central. Waiting 30s.", e);
+					try {
+						Thread.sleep(1000 * 30);
+					} catch (InterruptedException ee) {
+						logger.error(ee);
+						Thread.currentThread().interrupt();
+					}
 				}
 			}
 		}
 
-		return descriptorResult.getDependencies();
+		return descriptorResult != null ? descriptorResult.getDependencies() : Collections.emptyList();
 	}
 
 	private List<String> parseUsagePage(String groupId, String artifactId, String version, int page) {
@@ -154,9 +182,9 @@ public class AetherCollector implements MavenCollector {
 				doc = Jsoup.connect(String.format(MVN_REPOSITORY_USAGE_PAGE, groupId, artifactId, version, page))
 						.timeout(10000).get();
 			} catch (Exception e) {
-				logger.error("We got kicked from mvnrepository.com. Waiting 10s.");
+				logger.warn("We got kicked from mvnrepository.com. Waiting 30s.");
 				try {
-					Thread.sleep(10000);
+					Thread.sleep(1000 * 30);
 				} catch (InterruptedException ee) {
 					logger.error(ee);
 					Thread.currentThread().interrupt();
