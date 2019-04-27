@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -197,12 +198,11 @@ public class MavenDataset {
 
 	public void download() {
 		// Download libraries
-//		MigrationInfo migrationInfo = candidates.get(0);
-		downloader.downloadArtifactTo(libraries.get(0), datasetPath + "/libraries");
-		downloader.downloadArtifactTo(libraries.get(1), datasetPath + "/libraries");
+		downloader.downloadArtifactTo(candidates.get(0).libv1, datasetPath + "/libraries");
+		downloader.downloadArtifactTo(candidates.get(0).libv2, datasetPath + "/libraries");
 		// Download clients
-		downloader.downloadAllArtifactsTo(links.get(libraries.get(0)), datasetPath + "/clients");
-		downloader.downloadAllArtifactsTo(links.get(libraries.get(1)), datasetPath + "/clients");
+		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV1, datasetPath + "/clients");
+		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV2, datasetPath + "/clients");
 
 		// Serialize a simple CSV with links between libraries and clients
 		Path csv = Paths.get(datasetPath + "/links.csv");
@@ -245,17 +245,22 @@ public class MavenDataset {
 	}
 
 	public void writeM3s() {
+		AtomicInteger count = new AtomicInteger(0);
+
 		try (Stream<Path> paths = Files.walk(Paths.get(datasetPath))) {
 			paths.filter(p -> p.toFile().isFile() && p.toString().endsWith(".jar")).forEach(p -> {
 
 				String jar = p.toAbsolutePath().toString();
 				String dest = p.toAbsolutePath().toString() + ".m3";
-
-				logger.info("Building M3 model for {}", jar);
+				logger.info("Building {} M3 model for {}", count.incrementAndGet(), jar);
 				IValue m3model = null;
 				try {
-					m3model = m3.createM3FromJarFile(jar);
-					m3.writeM3ModelFile(m3model, dest);
+					if (Files.exists(Paths.get(jar + ".m3")))
+						m3model = m3.deserializeM3(jar);
+					else {
+						m3model = m3.createM3FromJarFile(jar);
+						m3.writeM3ModelFile(m3model, dest);
+					}
 				} catch (IOException e1) {
 					logger.error(e1);
 				}
