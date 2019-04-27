@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.common.collect.Table;
 
+import io.usethesource.vallang.IValue;
 import nl.cwi.swat.aethereal.rascal.RascalM3;
 
 public class MavenDataset {
@@ -126,13 +127,13 @@ public class MavenDataset {
 		int min = libraries.stream().mapToInt(a -> links.get(a).size()).min().getAsInt();
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
-		if(candidates != null){
+		if (candidates != null) {
 			logger.info("Migrated libraries:");
 			candidates.stream().limit(5)
 					.forEach(c -> logger.info("{} migrations between {} and {}", c.count, c.libv1, c.libv2));
 
 		}
-			
+
 	}
 
 	public List<MigrationInfo> computeMigratedVersions() {
@@ -165,7 +166,7 @@ public class MavenDataset {
 				candidates
 						.add(new MigrationInfo(libraries.get(i), libraries.get(j), currentVal, downloadV1, downloadV2));
 			}
-		}			
+		}
 		candidates.sort((m1, m2) -> m2.count.compareTo(m1.count));
 		return candidates;
 	}
@@ -246,16 +247,48 @@ public class MavenDataset {
 	public void writeM3s() {
 		try (Stream<Path> paths = Files.walk(Paths.get(datasetPath))) {
 			paths.filter(p -> p.toFile().isFile() && p.toString().endsWith(".jar")).forEach(p -> {
-				try {
-					String jar = p.toAbsolutePath().toString();
-					String dest = p.toAbsolutePath().toString() + ".m3";
 
-					logger.info("Building M3 model for {}", jar);
-					m3.writeM3ForJarFile(jar, dest);
-				} catch (IOException e) {
-					logger.error(e);
+				String jar = p.toAbsolutePath().toString();
+				String dest = p.toAbsolutePath().toString() + ".m3";
+
+				logger.info("Building M3 model for {}", jar);
+				IValue m3model = null;
+				try {
+					m3model = m3.createM3FromJarFile(jar);
+					m3.writeM3ModelFile(m3model, dest);
+				} catch (IOException e1) {
+					logger.error(e1);
 				}
+				writeFocusFiles(p, m3model);
 			});
+		} catch (IOException e) {
+			logger.error(e);
+		}
+	}
+
+	private void writeFocusFiles(Path p, IValue m3model) {
+		String focus = p.toAbsolutePath().toString() + ".focus";
+		String mdFocus = p.toAbsolutePath().toString() + ".md.focus";
+		Multimap<String, String> md_mi = m3.extractMethodInvocations(m3model);
+		Set<String> KOI = Sets.newHashSet();
+		md_mi.keys().forEach(key -> {
+			if (md_mi.get(key).stream().filter(z -> !md_mi.containsKey(z)).count() > 8)
+				KOI.add(key);
+		});
+		Path focusFile = Paths.get(focus);
+		Path mdFocusFile = Paths.get(mdFocus);
+		try (BufferedWriter writerMD = Files.newBufferedWriter(mdFocusFile);
+				BufferedWriter writer = Files.newBufferedWriter(focusFile);) {
+			for (String md : KOI) {
+				writerMD.write(
+						md.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", "") + "\n");
+				for (String mi : md_mi.get(md)) {
+
+					writer.write(String.format("%s#%s\n",
+							md.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", ""),
+							mi.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", "")));
+				}
+			}
 		} catch (IOException e) {
 			logger.error(e);
 		}

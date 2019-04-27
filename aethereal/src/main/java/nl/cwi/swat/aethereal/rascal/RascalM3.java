@@ -1,9 +1,16 @@
 package nl.cwi.swat.aethereal.rascal;
 
+import static org.rascalmpl.values.uptr.RascalValueFactory.TYPE_STORE_SUPPLIER;
+
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.URISyntaxException;
 import java.nio.channels.FileChannel;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
@@ -21,12 +28,14 @@ import io.usethesource.vallang.ISourceLocation;
 import io.usethesource.vallang.ITuple;
 import io.usethesource.vallang.IValue;
 import io.usethesource.vallang.IValueFactory;
+import io.usethesource.vallang.io.binary.stream.IValueInputStream;
 import io.usethesource.vallang.io.binary.stream.IValueOutputStream;
 import io.usethesource.vallang.io.binary.stream.IValueOutputStream.CompressionRate;
 
 public class RascalM3 {
 	private IValueFactory vf = ValueFactoryFactory.getValueFactory();
 	private Evaluator evaluator = createRascalEvaluator(vf);
+	private static final Logger logger = LogManager.getLogger(RascalM3.class);
 
 	/**
 	 * Build an M3 model for {@code jar} and serialize it in binary form in
@@ -48,19 +57,90 @@ public class RascalM3 {
 	}
 
 	/**
+	 * Serialize M3 model in binary form in {@code dest} Code shamlessly stolen from
+	 * Rascal.
+	 * 
+	 * @param m3   model that will be written
+	 * @param dest An /absolute/path/to/the/Destination.m3
+	 * @throws IOException
+	 */
+	public void writeM3ModelFile(IValue m3, String dest) throws IOException {
+		ISourceLocation destLoc = vf.sourceLocation(dest);
+		URIResolverRegistry registry = URIResolverRegistry.getInstance();
+		FileChannel channel = registry.getWriteableFileChannel(destLoc, false);
+		try (IValueOutputStream writer = new IValueOutputStream(channel, vf, CompressionRate.Normal)) {
+			writer.write(m3);
+		}
+	}
+
+	/**
 	 * Extract the list of method declarations/invocations from a JAR file.
 	 *
 	 * @param jar An /absolute/path/to/the/Example.jar
 	 * @return a multimap mapping each declaration to a list of invocations
 	 */
 	public Multimap<String, String> extractMethodInvocationsFromJAR(String jar) {
-		IValue m3 = createM3FromJarFile(jar);
+		IValue m3 = null;
+		if (!Files.exists(Paths.get(jar + ".m3")))
+			m3 = createM3FromJarFile(jar);
+		else {
+			ISourceLocation loc = null;
+			try {
+				loc = vf.sourceLocation("file", "", jar + ".m3");
+			} catch (URISyntaxException e1) {
+				logger.error("");
+			}
+			try (IValueInputStream in = new IValueInputStream(URIResolverRegistry.getInstance().getInputStream(loc), vf,
+					TYPE_STORE_SUPPLIER)) {
+				m3 = in.read();
+			} catch (IOException e) {
+				logger.error(e);
+			}
+
+		}
 		ISet rel = ((ISet) ((IConstructor) m3).asWithKeywordParameters().getParameter("methodInvocation"));
 
 		return convertISetToMultimap(rel);
 	}
 
-	private IValue createM3FromJarFile(String jar) {
+	/**
+	 * Deserialize an m3 model file to IValue
+	 * @param m3path the path of m3 model
+	 * @return m3 model IValue
+	 */
+
+	public IValue deserializeM3(String m3path) {
+		ISourceLocation loc = null;
+		try {
+			loc = vf.sourceLocation("file", "", m3path + ".m3");
+		} catch (URISyntaxException e) {
+			logger.error(e);
+			return null;
+		}
+		try (IValueInputStream in = new IValueInputStream(URIResolverRegistry.getInstance().getInputStream(loc), vf,
+				TYPE_STORE_SUPPLIER)) {
+			return in.read();
+		} catch (IOException e) {
+			logger.error(e);
+			return null;
+		}
+	}
+	/**
+	 * Extract the list of method declarations/invocations from an m3 model.
+	 *
+	 * @param jar An m3model
+	 * @return a multimap mapping each declaration to a list of invocations
+	 */
+	public Multimap<String, String> extractMethodInvocations(IValue m3) {
+		ISet rel = ((ISet) ((IConstructor) m3).asWithKeywordParameters().getParameter("methodInvocation"));
+		return convertISetToMultimap(rel);
+	}
+	/**
+	 * Compute and m3 model from a jar file
+	 * @param jar An /absolute/path/to/the/Example.jar
+	 * @return an m3model
+	 */
+	public IValue createM3FromJarFile(String jar) {
 		EclipseJavaCompiler ejc = new EclipseJavaCompiler(vf);
 		return ejc.createM3FromJarFile(vf.sourceLocation(jar), evaluator);
 	}
