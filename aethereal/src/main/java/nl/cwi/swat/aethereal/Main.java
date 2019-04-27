@@ -34,17 +34,14 @@ public class Main {
 				.addOption(Option.builder("artifactId").desc("artifactId of the artifact to be analyzed").hasArg()
 						.argName("artifactId").required().build())
 				.addOption(Option.builder("download").desc("Download JARs locally").build())
-				.addOption(Option.builder("all").desc("Download all JARs locally").build())
 				.addOption(Option.builder("datasetPath").hasArg().argName("path")
 						.desc("Relative path to where the dataset should be stored (default is 'dataset')").build())
 				.addOption(Option.builder("m3").desc("Serialize the M3 models of all JARs").build())
-				.addOption(Option.builder("csv").desc("Serialize the version matrix as csv").build())
 				.addOptionGroup(method)
-				.addOption(Option.builder("v1").hasArg().argName("libV1")
-						.desc("Initial version of the library").build())
-				.addOption(Option.builder("v2").hasArg().argName("libV2")
-						.desc("Evolved version of the library").build());
-		
+				.addOption(
+						Option.builder("v1").hasArg().argName("libV1").desc("Initial version of the library").build())
+				.addOption(
+						Option.builder("v2").hasArg().argName("libV2").desc("Evolved version of the library").build());
 
 		try (FileInputStream fis = new FileInputStream("aethereal.properties")) {
 			CommandLineParser parser = new DefaultParser();
@@ -67,27 +64,33 @@ public class Main {
 
 			String path = cmd.getOptionValue("datasetPath", "dataset");
 			MavenDataset dt = new MavenDataset(coordinates, path, collector, downloader);
-			if(cmd.hasOption("v1") && cmd.hasOption("v2")) {
+			boolean pair = cmd.hasOption("v1") && cmd.hasOption("v2");
+			boolean single = cmd.hasOption("v1") && !cmd.hasOption("v2");
+			if (pair) {
 				String v1 = cmd.getOptionValue("v1", "libV1");
 				String v2 = cmd.getOptionValue("v2", "libV2");
-				dt.build(v1,v2);
-			} else {
+				dt.build(v1, v2);
+			}
+			if (single) {
+				String v1 = cmd.getOptionValue("v1", "libV1");
+				dt.build(v1);
+			}
+			if (!single && !pair) {
 				dt.build();
 			}
 			dt.printStats();
 
-			if (cmd.hasOption("csv")) 
-				dt.writeVersionMatrix();
-			
-			if (cmd.hasOption("download"))
-				if(cmd.hasOption("all"))
+			if (cmd.hasOption("download")) {
+				if (!pair & !single)
 					dt.downloadAll();
-				else
+				if (single & !pair)
+					dt.downloadLibrary();
+				if (pair)
 					dt.download();
-			
-			if (cmd.hasOption("m3")) 
+			}
+			if (cmd.hasOption("m3"))
 				dt.writeM3s();
-			
+
 		} catch (ParseException e) {
 			logger.error(e.getMessage());
 			formatter.printHelp("aethereal", opts);

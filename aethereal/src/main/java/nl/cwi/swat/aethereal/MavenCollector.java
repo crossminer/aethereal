@@ -38,13 +38,5 @@ public interface MavenCollector {
 	 * Check if the coordinate points to a real arifact
 	 */
 	public boolean checkArtifact(String coordinate);
-	/**
-	 * 	/**
-	 * Collect all clients of the two versions of an artifact
-	 * @param coordinates
-	 * @param v1
-	 * @param v2
-	 * @return
-	 */
-	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates, String v1, String v2);
+	
 }

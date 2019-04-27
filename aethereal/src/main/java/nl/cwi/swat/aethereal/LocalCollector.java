@@ -196,29 +196,4 @@ public class LocalCollector implements MavenCollector {
 			return false;
 		}
 	}
-
-	@Override
-	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates, String v1, String v2) {
-		Multimap<Artifact, Artifact> ret = ArrayListMultimap.create();
-
-		logger.info("Looking for clients of any version of {} in {}", coordinates, LINKS_FILE);
-		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8")) {
-			while (it.hasNext()) {
-				// Each line in the form "source","target","scope"
-				String line = it.nextLine();
-				String[] fields = line.split(",");
-				String source = fields[0].replaceAll("\"", "");
-				String target = fields[1].replaceAll("\"", "");
-				String scope = fields[2].replaceAll("\"", "");
-				if ((target.equals(coordinates + ":" + v1) || target.equals(coordinates + ":" + v2))
-						&& scope.equals("Compile"))
-					ret.put(new DefaultArtifact(target), new DefaultArtifact(source));
-			}
-
-			return ret;
-		} catch (IOException e) {
-			logger.error("Couldn't read {}", LINKS_FILE, e);
-			return null;
-		}
-	}
 }

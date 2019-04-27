@@ -221,10 +221,4 @@ public class AetherCollector implements MavenCollector {
 		// TODO Auto-generated method stub
 		return false;
 	}
-
-	@Override
-	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates, String v1, String v2) {
-		// TODO Auto-generated method stub
-		return null;
-	}
 }
