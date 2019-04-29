@@ -66,31 +66,36 @@ public class Main {
 			MavenDataset dt = new MavenDataset(coordinates, path, collector, downloader);
 			boolean pair = cmd.hasOption("v1") && cmd.hasOption("v2");
 			boolean single = cmd.hasOption("v1") && !cmd.hasOption("v2");
+
 			if (pair) {
 				String v1 = cmd.getOptionValue("v1", "libV1");
 				String v2 = cmd.getOptionValue("v2", "libV2");
 				dt.build(v1, v2);
 			}
+
 			if (single) {
 				String v1 = cmd.getOptionValue("v1", "libV1");
 				dt.build(v1);
 			}
+
 			if (!single && !pair) {
 				dt.build();
 			}
+
 			dt.printStats();
 
 			if (cmd.hasOption("download")) {
-				if (!pair & !single)
+				if (!pair && !single)
 					dt.downloadAll();
-				if (single & !pair)
+				if (single && !pair)
 					dt.downloadLibrary();
 				if (pair)
 					dt.download();
 			}
-			if (cmd.hasOption("m3"))
-				dt.writeM3s();
 
+			if (cmd.hasOption("m3")) {
+				dt.writeM3s();
+			}
 		} catch (ParseException e) {
 			logger.error(e.getMessage());
 			formatter.printHelp("aethereal", opts);

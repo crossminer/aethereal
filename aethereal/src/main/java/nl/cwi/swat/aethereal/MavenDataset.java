@@ -36,7 +36,7 @@ public class MavenDataset {
 	private AetherDownloader downloader;
 	private RascalM3 m3 = new RascalM3();
 
-	Set<String> clients = new HashSet<String>();
+	Set<String> clients = new HashSet<>();
 	private List<Artifact> libraries = new ArrayList<>();
 	private Set<String> unversionedClients = new HashSet<>();
 	private Multimap<Artifact, Artifact> links = ArrayListMultimap.create();
@@ -85,6 +85,7 @@ public class MavenDataset {
 		collector.collectClientsOf(libraries.get(0)).forEach(z -> links.put(libraries.get(0), z));
 		collector.collectClientsOf(libraries.get(1)).forEach(z -> links.put(libraries.get(1), z));
 		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
+
 		logger.info("Found {} clients for all versions", links.size());
 		versionMatrix = computeVersionMatrix();
 		candidates = computeMigratedVersions();
@@ -100,8 +101,8 @@ public class MavenDataset {
 
 		if (collector.checkArtifact(String.format("%s:%s", coordinates, v1)))
 			libraries.add(new DefaultArtifact(String.format("%s:%s", coordinates, v1)));
-		logger.info("Found {} versions", libraries.size());
 
+		logger.info("Found {} versions", libraries.size());
 		collector.collectClientsOf(libraries.get(0)).forEach(z -> links.put(libraries.get(0), z));
 		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
 		logger.info("Found {} clients for all versions", links.size());
@@ -128,13 +129,13 @@ public class MavenDataset {
 		int min = libraries.stream().mapToInt(a -> links.get(a).size()).min().getAsInt();
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
+
 		if (candidates != null) {
 			logger.info("Migrated libraries:");
 			candidates.stream().limit(5)
 					.forEach(c -> logger.info("{} migrations between {} and {}", c.count, c.libv1, c.libv2));
 
 		}
-
 	}
 
 	public List<MigrationInfo> computeMigratedVersions() {
@@ -153,13 +154,15 @@ public class MavenDataset {
 				SetView<String> intersection = Sets.intersection(loaded.get(i), loaded.get(j));
 
 				int currentVal = 0;
-				List<Artifact> downloadV1 = new ArrayList<Artifact>();
-				List<Artifact> downloadV2 = new ArrayList<Artifact>();
+				List<Artifact> downloadV1 = new ArrayList<>();
+				List<Artifact> downloadV2 = new ArrayList<>();
 				for (String client : intersection) {
 					if (!versionMatrix.get(libraries.get(i), client)
 							.equals(versionMatrix.get(libraries.get(j), client))) {
-						downloadV1.add(new DefaultArtifact(client + ":" + versionMatrix.get(libraries.get(i), client)));
-						downloadV2.add(new DefaultArtifact(client + ":" + versionMatrix.get(libraries.get(j), client)));
+						downloadV1.add(new DefaultArtifact(
+								String.format("%s:%s", client, versionMatrix.get(libraries.get(i), client))));
+						downloadV2.add(new DefaultArtifact(
+								String.format("%s:%s", client, versionMatrix.get(libraries.get(j), client))));
 						currentVal++;
 					}
 				}
@@ -235,12 +238,14 @@ public class MavenDataset {
 
 	private Table<Artifact, String, String> computeVersionMatrix() {
 		Table<Artifact, String, String> result = HashBasedTable.create();
+
 		for (Artifact library : libraries) {
 			for (Artifact client : links.get(library)) {
 				String unversionedClient = Aether.toUnversionedCoordinates(client);
 				result.put(library, unversionedClient, client.getVersion());
 			}
 		}
+
 		return result;
 	}
 
@@ -249,21 +254,22 @@ public class MavenDataset {
 
 		try (Stream<Path> paths = Files.walk(Paths.get(datasetPath))) {
 			paths.filter(p -> p.toFile().isFile() && p.toString().endsWith(".jar")).forEach(p -> {
-
 				String jar = p.toAbsolutePath().toString();
 				String dest = p.toAbsolutePath().toString() + ".m3";
 				logger.info("Building {} M3 model for {}", count.incrementAndGet(), jar);
+
 				IValue m3model = null;
 				try {
-					if (Files.exists(Paths.get(jar + ".m3")))
+					if (Paths.get(jar + ".m3").toFile().exists())
 						m3model = m3.deserializeM3(jar);
 					else {
 						m3model = m3.createM3FromJarFile(jar);
 						m3.writeM3ModelFile(m3model, dest);
 					}
-				} catch (IOException e1) {
-					logger.error(e1);
+				} catch (IOException e) {
+					logger.error(e);
 				}
+
 				writeFocusFiles(p, m3model);
 			});
 		} catch (IOException e) {
@@ -289,7 +295,7 @@ public class MavenDataset {
 						md.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", "") + "\n");
 				for (String mi : md_mi.get(md)) {
 
-					writer.write(String.format("%s#%s\n",
+					writer.write(String.format("%s#%s%n",
 							md.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", ""),
 							mi.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", "")));
 				}

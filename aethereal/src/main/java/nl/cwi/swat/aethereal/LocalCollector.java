@@ -27,7 +27,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
-
 /**
  * The Local collector uses a pre-computed dependency graph of Maven Central
  * available at https://zenodo.org/record/1489120 to gather all information
@@ -114,7 +113,7 @@ public class LocalCollector implements MavenCollector {
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
 				String scope = fields[2].replaceAll("\"", "");
-				
+
 				if (target.startsWith(coordinates + ":") && scope.equals("Compile")) {
 					ret.put(new DefaultArtifact(target), new DefaultArtifact(source));
 				}
@@ -187,8 +186,9 @@ public class LocalCollector implements MavenCollector {
 				String line = it.nextLine();
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
-				if (source.equals(coordinate)) 
-						return true;
+
+				if (source.equals(coordinate))
+					return true;
 			}
 			return false;
 		} catch (IOException e) {

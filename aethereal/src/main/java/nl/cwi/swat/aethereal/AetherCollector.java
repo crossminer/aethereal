@@ -218,7 +218,6 @@ public class AetherCollector implements MavenCollector {
 
 	@Override
 	public boolean checkArtifact(String coordinate) {
-		// TODO Auto-generated method stub
-		return false;
+		throw new UnsupportedOperationException("Not implemented, yet");
 	}
 }
