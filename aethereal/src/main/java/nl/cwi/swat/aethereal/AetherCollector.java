@@ -215,4 +215,10 @@ public class AetherCollector implements MavenCollector {
 
 		return res;
 	}
+
+	@Override
+	public boolean checkArtifact(String coordinate) {
+		// TODO Auto-generated method stub
+		return false;
+	}
 }

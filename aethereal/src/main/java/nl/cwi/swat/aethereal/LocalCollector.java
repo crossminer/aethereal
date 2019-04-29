@@ -27,12 +27,14 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 
+
 /**
  * The Local collector uses a pre-computed dependency graph of Maven Central
  * available at https://zenodo.org/record/1489120 to gather all information
  * about artifacts locally.
  */
 public class LocalCollector implements MavenCollector {
+
 	private static final String DATASET_PATH = "dependency-graph/";
 	private static final String VERSIONS_FILE = DATASET_PATH + "next_all.csv";
 	private static final String LINKS_FILE = DATASET_PATH + "links_all.csv";
@@ -56,7 +58,6 @@ public class LocalCollector implements MavenCollector {
 				String[] fields = line.split(",");
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
-
 				// ':' included to avoid matching source[-more-text]
 				if (source.startsWith(coordinates + ":")) {
 					Artifact older = new DefaultArtifact(source);
@@ -113,7 +114,7 @@ public class LocalCollector implements MavenCollector {
 				String source = fields[0].replaceAll("\"", "");
 				String target = fields[1].replaceAll("\"", "");
 				String scope = fields[2].replaceAll("\"", "");
-
+				
 				if (target.startsWith(coordinates + ":") && scope.equals("Compile")) {
 					ret.put(new DefaultArtifact(target), new DefaultArtifact(source));
 				}
@@ -175,5 +176,24 @@ public class LocalCollector implements MavenCollector {
 
 	private boolean datasetExists() {
 		return Paths.get(LINKS_FILE).toFile().exists() && Paths.get(VERSIONS_FILE).toFile().exists();
+	}
+
+	@Override
+	public boolean checkArtifact(String coordinate) {
+		logger.info("Looking for {} version in {}", coordinate, VERSIONS_FILE);
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(VERSIONS_FILE).toFile(), "UTF-8")) {
+			while (it.hasNext()) {
+				// Each line in the form "source","target"
+				String line = it.nextLine();
+				String[] fields = line.split(",");
+				String source = fields[0].replaceAll("\"", "");
+				if (source.equals(coordinate)) 
+						return true;
+			}
+			return false;
+		} catch (IOException e) {
+			logger.error("Couldn't read {}", VERSIONS_FILE, e);
+			return false;
+		}
 	}
 }

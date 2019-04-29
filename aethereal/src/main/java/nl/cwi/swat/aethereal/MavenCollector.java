@@ -34,4 +34,9 @@ public interface MavenCollector {
 	 * JAR, number of versions, etc.)
 	 */
 	public List<Artifact> collectLibrariesMatching(MavenCollectorQuery query);
+	/**
+	 * Check if the coordinate points to a real arifact
+	 */
+	public boolean checkArtifact(String coordinate);
+	
 }
