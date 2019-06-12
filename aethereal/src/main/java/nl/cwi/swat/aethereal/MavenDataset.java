@@ -129,6 +129,13 @@ public class MavenDataset {
 		int min = libraries.stream().mapToInt(a -> links.get(a).size()).min().getAsInt();
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
+		Map<Artifact,Integer> artifactUsage = links.keys().stream().collect(Collectors.toSet()).stream().collect(Collectors.toMap(z -> z, z -> links.get(z).size()));
+		//.map(z -> links.get(z).stream().filter(k -> k !=null).count());
+		Map<Artifact,Integer> orderedSrtifactUsage = artifactUsage.entrySet()
+		        .stream()
+		        .sorted(Map.Entry.<Artifact,Integer>comparingByValue().reversed())
+		        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+		orderedSrtifactUsage.entrySet().forEach(z -> logger.info("{} occurs {} times",z.getKey().toString(),z.getValue()));
 
 		if (candidates != null) {
 			logger.info("Migrated libraries:");
