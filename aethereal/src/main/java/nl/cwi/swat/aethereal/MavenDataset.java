@@ -8,7 +8,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -211,8 +213,8 @@ public class MavenDataset {
 		downloader.downloadArtifactTo(candidates.get(0).libv1, datasetPath + "/libraries");
 		downloader.downloadArtifactTo(candidates.get(0).libv2, datasetPath + "/libraries");
 		// Download clients
-		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV1, datasetPath + "/clients");
-		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV2, datasetPath + "/clients");
+		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV1, Paths.get(datasetPath, candidates.get(0).libv1.getArtifactId() + candidates.get(0).libv1.getVersion()).toString());
+		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV2, Paths.get(datasetPath, candidates.get(0).libv1.getArtifactId() + candidates.get(0).libv2.getVersion()).toString());
 
 		// Serialize a simple CSV with links between libraries and clients
 		Path csv = Paths.get(datasetPath + "/links.csv");
@@ -228,9 +230,13 @@ public class MavenDataset {
 	public void downloadAll() {
 		// Download libraries
 		downloader.downloadAllArtifactsTo(libraries, datasetPath + "/libraries");
-
+		for (MigrationInfo artifact : candidates) {
+			downloader.downloadAllArtifactsTo(artifact.clientsV1, Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv1.getVersion()).toString());
+			downloader.downloadAllArtifactsTo(artifact.clientsV2, Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv2.getVersion()).toString());
+			
+		}
 		// Download clients
-		downloader.downloadAllArtifactsTo(links.values(), datasetPath + "/clients");
+		
 
 		// Serialize a simple CSV with links between libraries and clients
 		Path csv = Paths.get(datasetPath + "/links.csv");
