@@ -52,7 +52,28 @@ public class MavenDataset {
 		this.datasetPath = path;
 		this.downloader = downloader;
 	}
-
+	public MavenDataset(String path, MavenCollector collector) {
+		this.collector = collector;
+		this.datasetPath = path;
+	}
+	
+	public List<MigrationInfo> getVersions(String libV1, String libV2){
+		DefaultArtifact libv1 = new DefaultArtifact(libV1);
+		DefaultArtifact libv2 = new DefaultArtifact(libV2);
+		libraries.add(libv1);
+		libraries.add(libv2);
+		collector.collectClientsOf(libv1).forEach(z -> links.put(libv1, z));
+		collector.collectClientsOf(libv2).forEach(z -> links.put(libv2, z));
+		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
+		versionMatrix = computeVersionMatrix();
+		return computeMigratedVersions();
+		
+	}
+	public List<Artifact> getClients(String libV1) {
+		DefaultArtifact libv1 = new DefaultArtifact(libV1);
+		return collector.collectClientsOf(libv1);
+	}
+	
 	public void build() throws IOException {
 		logger.info("Building dataset for {}", coordinates);
 
@@ -230,7 +251,9 @@ public class MavenDataset {
 	public void downloadAll() {
 		// Download libraries
 		downloader.downloadAllArtifactsTo(libraries, datasetPath + "/libraries");
+		logger.info("#Candidates: {}", candidates.size());
 		for (MigrationInfo artifact : candidates) {
+			logger.info("Download clients of {} {}", artifact.libv1.getVersion(),  artifact.libv2.getVersion());
 			downloader.downloadAllArtifactsTo(artifact.clientsV1, Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv1.getVersion()).toString());
 			downloader.downloadAllArtifactsTo(artifact.clientsV2, Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv2.getVersion()).toString());
 			
@@ -318,26 +341,6 @@ public class MavenDataset {
 		}
 	}
 
-	final class MigrationInfo {
-		public Artifact libv1;
-		public Artifact libv2;
-		public Integer count;
-		public List<Artifact> clientsV1;
-		public List<Artifact> clientsV2;
-
-		MigrationInfo(Artifact l1, Artifact l2, int c, List<Artifact> clientsV1, List<Artifact> clientsV2) {
-			libv1 = l1;
-			libv2 = l2;
-			count = c;
-			this.clientsV1 = clientsV1;
-			this.clientsV2 = clientsV2;
-		}
-
-		@Override
-		public String toString() {
-			return String.format("[%s] %s -> %s", count, libv1.getArtifactId(), libv2.getArtifactId());
-		}
-	}
 
 	public void downloadLibrary() {
 		downloader.downloadArtifactTo(libraries.get(0), datasetPath + "/libraries");
