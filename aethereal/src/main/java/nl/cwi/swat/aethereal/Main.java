@@ -34,7 +34,7 @@ public class Main {
 				.addOption(Option.builder("artifactId").desc("artifactId of the artifact to be analyzed").hasArg()
 						.argName("artifactId").required().build())
 				.addOption(Option.builder("download").desc("Download JARs locally").build())
-				.addOption(Option.builder("datasetPath").hasArg().argName("path")
+				.addOption(Option.builder("path").hasArg().argName("path")
 						.desc("Relative path to where the dataset should be stored (default is 'dataset')").build())
 				.addOption(Option.builder("m3").desc("Serialize the M3 models of all JARs").build())
 				.addOptionGroup(method)
@@ -61,7 +61,6 @@ public class Main {
 			AetherDownloader downloader = new AetherDownloader(aetherQps);
 			String coordinates = String.format("%s:%s", cmd.getOptionValue("groupId"),
 					cmd.getOptionValue("artifactId"));
-
 			String path = cmd.getOptionValue("datasetPath", "dataset");
 			MavenDataset dt = new MavenDataset(coordinates, path, collector, downloader);
 			boolean pair = cmd.hasOption("v1") && cmd.hasOption("v2");

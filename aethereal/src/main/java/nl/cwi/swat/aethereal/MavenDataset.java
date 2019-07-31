@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -68,6 +69,30 @@ public class MavenDataset {
 		versionMatrix = computeVersionMatrix();
 		return computeMigratedVersions();
 		
+	}
+	public List<MigrationInfo> getVersions(String libV1){
+		libraries = collector.collectAvailableVersions(libV1);
+		for (Artifact artifact : libraries) {
+			links.putAll(artifact, collector.collectClientsOf(artifact));
+		}
+		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
+		versionMatrix = computeVersionMatrix();
+		candidates = computeMigratedVersions();
+		return candidates;
+	}
+	public List<MigrationInfo> getVersions(String libV1, int n){
+		libraries = collector.collectAvailableVersions(libV1);
+		for (Artifact artifact : libraries) {
+			links.putAll(artifact, collector.collectClientsOf(artifact));
+		}
+		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
+		versionMatrix = computeVersionMatrix();
+		candidates = computeMigratedVersions();
+		List<MigrationInfo> sortedList = candidates.stream()
+					.sorted(Comparator.comparingInt(MigrationInfo::getCount))
+					.limit(20)
+					.collect(Collectors.toList());
+		return sortedList;
 	}
 	public List<Artifact> getClients(String libV1) {
 		DefaultArtifact libv1 = new DefaultArtifact(libV1);

@@ -8,6 +8,14 @@ public class MigrationInfo {
 	public Artifact libv1;
 	public Artifact libv2;
 	public Integer count;
+	public Integer getCount() {
+		return count;
+	}
+
+	public void setCount(Integer count) {
+		this.count = count;
+	}
+
 	public List<Artifact> clientsV1;
 	public List<Artifact> clientsV2;
 

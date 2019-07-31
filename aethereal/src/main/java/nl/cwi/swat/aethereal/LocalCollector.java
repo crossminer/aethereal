@@ -37,6 +37,7 @@ public class LocalCollector implements MavenCollector {
 	private static final String DATASET_PATH = "dependency-graph/";
 	private static final String VERSIONS_FILE = DATASET_PATH + "next_all.csv";
 	private static final String LINKS_FILE = DATASET_PATH + "links_all.csv";
+	private static final String RELEASE_FILE = DATASET_PATH + "release_all.csv";
 	private static final String REMOTE_DATASET = "https://zenodo.org/record/1489120/files/maven-data.csv.tar.xz";
 
 	private static final Logger logger = LogManager.getLogger(LocalCollector.class);
@@ -50,7 +51,8 @@ public class LocalCollector implements MavenCollector {
 		List<Artifact> ret = new ArrayList<>();
 
 		logger.info("Looking for {} versions in {}", coordinates, VERSIONS_FILE);
-		try (LineIterator it = FileUtils.lineIterator(Paths.get(VERSIONS_FILE).toFile(), "UTF-8")) {
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(VERSIONS_FILE).toFile(), "UTF-8");
+				LineIterator it2 = FileUtils.lineIterator(Paths.get(RELEASE_FILE).toFile(), "UTF-8");) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target"
 				String line = it.nextLine();
@@ -67,6 +69,18 @@ public class LocalCollector implements MavenCollector {
 						ret.add(newer);
 				}
 			}
+//			while(it2.hasNext()) {
+//				String line = it2.nextLine();
+//				Optional<Artifact> release = ret.stream().filter(z -> 
+//					line.split(",")[0].replaceAll("\"", "").equals(String.format("%s:%s:%s", z.getGroupId(), z.getArtifactId(), z.getVersion())
+//						)
+//					).findAny();
+//				if (release.isPresent()) {
+//					Map<String, String> propr = Maps.newHashMap();
+//					propr.put("releaseDate", line.split(",")[2]);
+//					release.get().setProperties(propr);
+//				}
+//			}
 			return ret;
 		} catch (IOException e) {
 			logger.error("Couldn't read {}", VERSIONS_FILE, e);
@@ -79,7 +93,8 @@ public class LocalCollector implements MavenCollector {
 		List<Artifact> ret = new ArrayList<>();
 
 		logger.info("Looking for clients of {} in {}", artifact, LINKS_FILE);
-		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8")) {
+		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8");
+				LineIterator it2 = FileUtils.lineIterator(Paths.get(RELEASE_FILE).toFile(), "UTF-8");) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
 				String line = it.nextLine();
@@ -92,6 +107,15 @@ public class LocalCollector implements MavenCollector {
 					ret.add(new DefaultArtifact(source));
 				}
 			}
+//			while(it2.hasNext()) {
+//				String line = it2.nextLine();
+//				Optional<Artifact> release = ret.stream().filter(z -> line.equals(String.format("%s:%s:%s", z.getGroupId(), z.getArtifactId(), z.getVersion()))).findAny();
+//				if (release.isPresent()) {
+//					Map<String, String> propr = Maps.newHashMap();
+//					propr.put("releaseDate", line.split(",")[2]);
+//					release.get().setProperties(propr);
+//				}
+//			}
 
 			return ret;
 		} catch (IOException e) {
