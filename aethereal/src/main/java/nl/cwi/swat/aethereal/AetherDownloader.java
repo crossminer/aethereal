@@ -16,6 +16,7 @@ import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 import org.eclipse.aether.transfer.ArtifactNotFoundException;
+import org.eclipse.aether.transfer.MetadataNotFoundException;
 
 import com.google.common.util.concurrent.RateLimiter;
 
@@ -60,6 +61,10 @@ public class AetherDownloader {
 					logger.warn("Artifact {} not found on Maven Central.", artifact);
 					// We won't get it ever
 					break;
+				} else if (root instanceof MetadataNotFoundException) {
+					logger.warn("Couldn't resolve local metadata for {}.", artifact);
+					// We won't get it ever
+					break;
 				} else if (root instanceof NoRouteToHostException) {
 					logger.warn("We got kicked from Maven Central. Waiting 30s.", e);
 					try {
@@ -68,7 +73,7 @@ public class AetherDownloader {
 						logger.error(ee);
 						Thread.currentThread().interrupt();
 					}
-				}
+				} else logger.error("Unknown error: ", e.getCause());
 			}
 		}
 
