@@ -23,6 +23,8 @@ import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 import org.eclipse.aether.transfer.ArtifactNotFoundException;
 import org.eclipse.aether.util.repository.AuthenticationBuilder;
+import org.eclipse.aether.transfer.ArtifactTransferException;
+import org.eclipse.aether.transfer.MetadataNotFoundException;
 
 import com.google.common.util.concurrent.RateLimiter;
 
@@ -68,6 +70,7 @@ public class AetherDownloader {
 		ArtifactRequest request = new ArtifactRequest();
 		request.setArtifact(artifact);
 		request.addRepository(repository);
+
 		logger.info("Downloading {}", artifact);
 		// Don't kick me senpai
 		ArtifactResult artifactResult = null;
@@ -89,6 +92,12 @@ public class AetherDownloader {
 					break;
 				} if (root instanceof NoRouteToHostException) {
 					logger.warn("We got kicked from Maven Central. Waiting 30s.", e);
+				} else if (root instanceof MetadataNotFoundException) {
+					logger.warn("Couldn't resolve local metadata for {}.", artifact);
+					// We won't get it ever
+					break;
+				} else if (root instanceof NoRouteToHostException || root instanceof ArtifactTransferException) {
+					logger.warn("We probably got kicked from Maven Central. Waiting 30s.", e);
 					try {
 						Thread.sleep(1000 * 30);
 					} catch (InterruptedException ee) {
