@@ -53,12 +53,13 @@ public class MavenDataset {
 		this.datasetPath = path;
 		this.downloader = downloader;
 	}
+
 	public MavenDataset(String path, MavenCollector collector) {
 		this.collector = collector;
 		this.datasetPath = path;
 	}
-	
-	public List<MigrationInfo> getVersions(String libV1, String libV2){
+
+	public List<MigrationInfo> getVersions(String libV1, String libV2) {
 		DefaultArtifact libv1 = new DefaultArtifact(libV1);
 		DefaultArtifact libv2 = new DefaultArtifact(libV2);
 		libraries.add(libv1);
@@ -68,9 +69,10 @@ public class MavenDataset {
 		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
 		versionMatrix = computeVersionMatrix();
 		return computeMigratedVersions();
-		
+
 	}
-	public List<MigrationInfo> getVersions(String libV1){
+
+	public List<MigrationInfo> getVersions(String libV1) {
 		libraries = collector.collectAvailableVersions(libV1);
 		for (Artifact artifact : libraries) {
 			links.putAll(artifact, collector.collectClientsOf(artifact));
@@ -80,7 +82,8 @@ public class MavenDataset {
 		candidates = computeMigratedVersions();
 		return candidates;
 	}
-	public List<MigrationInfo> getVersions(String libV1, int n){
+
+	public List<MigrationInfo> getVersions(String libV1, int n) {
 		libraries = collector.collectAvailableVersions(libV1);
 		for (Artifact artifact : libraries) {
 			links.putAll(artifact, collector.collectClientsOf(artifact));
@@ -88,17 +91,16 @@ public class MavenDataset {
 		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
 		versionMatrix = computeVersionMatrix();
 		candidates = computeMigratedVersions();
-		List<MigrationInfo> sortedList = candidates.stream()
-					.sorted(Comparator.comparingInt(MigrationInfo::getCount))
-					.limit(20)
-					.collect(Collectors.toList());
+		List<MigrationInfo> sortedList = candidates.stream().sorted(Comparator.comparingInt(MigrationInfo::getCount))
+				.limit(20).collect(Collectors.toList());
 		return sortedList;
 	}
+
 	public List<Artifact> getClients(String libV1) {
 		DefaultArtifact libv1 = new DefaultArtifact(libV1);
 		return collector.collectClientsOf(libv1);
 	}
-	
+
 	public void build() throws IOException {
 		logger.info("Building dataset for {}", coordinates);
 
@@ -177,13 +179,14 @@ public class MavenDataset {
 		int min = libraries.stream().mapToInt(a -> links.get(a).size()).min().getAsInt();
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
 		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
-		Map<Artifact,Integer> artifactUsage = links.keys().stream().collect(Collectors.toSet()).stream().collect(Collectors.toMap(z -> z, z -> links.get(z).size()));
-		//.map(z -> links.get(z).stream().filter(k -> k !=null).count());
-		Map<Artifact,Integer> orderedSrtifactUsage = artifactUsage.entrySet()
-		        .stream()
-		        .sorted(Map.Entry.<Artifact,Integer>comparingByValue().reversed())
-		        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
-		orderedSrtifactUsage.entrySet().forEach(z -> logger.info("{} occurs {} times",z.getKey().toString(),z.getValue()));
+		Map<Artifact, Integer> artifactUsage = links.keys().stream().collect(Collectors.toSet()).stream()
+				.collect(Collectors.toMap(z -> z, z -> links.get(z).size()));
+		// .map(z -> links.get(z).stream().filter(k -> k !=null).count());
+		Map<Artifact, Integer> orderedSrtifactUsage = artifactUsage.entrySet().stream()
+				.sorted(Map.Entry.<Artifact, Integer>comparingByValue().reversed())
+				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
+		orderedSrtifactUsage.entrySet()
+				.forEach(z -> logger.info("{} occurs {} times", z.getKey().toString(), z.getValue()));
 
 		if (candidates != null) {
 			logger.info("Migrated libraries:");
@@ -259,8 +262,12 @@ public class MavenDataset {
 		downloader.downloadArtifactTo(candidates.get(0).libv1, datasetPath + "/libraries");
 		downloader.downloadArtifactTo(candidates.get(0).libv2, datasetPath + "/libraries");
 		// Download clients
-		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV1, Paths.get(datasetPath, candidates.get(0).libv1.getArtifactId() + candidates.get(0).libv1.getVersion()).toString());
-		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV2, Paths.get(datasetPath, candidates.get(0).libv1.getArtifactId() + candidates.get(0).libv2.getVersion()).toString());
+		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV1,
+				Paths.get(datasetPath, candidates.get(0).libv1.getArtifactId() + candidates.get(0).libv1.getVersion())
+						.toString());
+		downloader.downloadAllArtifactsTo(candidates.get(0).clientsV2,
+				Paths.get(datasetPath, candidates.get(0).libv1.getArtifactId() + candidates.get(0).libv2.getVersion())
+						.toString());
 
 		// Serialize a simple CSV with links between libraries and clients
 		Path csv = Paths.get(datasetPath + "/links.csv");
@@ -278,13 +285,14 @@ public class MavenDataset {
 		downloader.downloadAllArtifactsTo(libraries, datasetPath + "/libraries");
 		logger.info("#Candidates: {}", candidates.size());
 		for (MigrationInfo artifact : candidates) {
-			logger.info("Download clients of {} {}", artifact.libv1.getVersion(),  artifact.libv2.getVersion());
-			downloader.downloadAllArtifactsTo(artifact.clientsV1, Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv1.getVersion()).toString());
-			downloader.downloadAllArtifactsTo(artifact.clientsV2, Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv2.getVersion()).toString());
-			
+			logger.info("Download clients of {} {}", artifact.libv1.getVersion(), artifact.libv2.getVersion());
+			downloader.downloadAllArtifactsTo(artifact.clientsV1,
+					Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv1.getVersion()).toString());
+			downloader.downloadAllArtifactsTo(artifact.clientsV2,
+					Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv2.getVersion()).toString());
+
 		}
 		// Download clients
-		
 
 		// Serialize a simple CSV with links between libraries and clients
 		Path csv = Paths.get(datasetPath + "/links.csv");
@@ -314,27 +322,38 @@ public class MavenDataset {
 		AtomicInteger count = new AtomicInteger(0);
 
 		try (Stream<Path> paths = Files.walk(Paths.get(datasetPath))) {
-			paths.filter(p -> p.toFile().isFile() && p.toString().endsWith(".jar")).forEach(p -> {
-				String jar = p.toAbsolutePath().toString();
-				String dest = p.toAbsolutePath().toString() + ".m3";
-				logger.info("Building {} M3 model for {}", count.incrementAndGet(), jar);
+			List<Path> listOfPath = paths.collect(Collectors.toList());
+			for (Path p : listOfPath) {
+				if (p.toFile().isFile() 
+						&& p.toString().endsWith(".jar")
+						&& !p.toString().contains("-sources")
+						&& !Paths.get(p.toAbsolutePath().toString() + ".m3").toFile().exists()
+						) {
+					String jar = p.toAbsolutePath().toString();
+					String dest = p.toAbsolutePath().toString() + ".m3";
+					logger.info("Building {} M3 model for {}", count.incrementAndGet(), jar);
 
-				IValue m3model = null;
-				try {
-					if (Paths.get(jar + ".m3").toFile().exists())
-						m3model = m3.deserializeM3(jar);
-					else {
-						m3model = m3.createM3FromJarFile(jar);
-						m3.writeM3ModelFile(m3model, dest);
+					IValue m3model = null;
+					try {
+						if (Paths.get(jar + ".m3").toFile().exists())
+							m3model = m3.deserializeM3(jar);
+						else {
+							m3model = m3.createM3FromJarFile(jar);
+							m3.writeM3ModelFile(m3model, dest);
+						}
+						writeFocusFiles(p, m3model);
+					} catch (IOException e) {
+						logger.error(e);
+					} catch (Exception e) {
+						logger.error("Serialize M3: {}", e.getMessage());
 					}
-				} catch (IOException e) {
-					logger.error(e);
-				}
 
-				writeFocusFiles(p, m3model);
-			});
+				}
+			}
 		} catch (IOException e) {
 			logger.error(e);
+		} catch (Exception e) {
+			logger.error("Serialize M3: {}", e.getMessage());
 		}
 	}
 
@@ -365,7 +384,6 @@ public class MavenDataset {
 			logger.error(e);
 		}
 	}
-
 
 	public void downloadLibrary() {
 		downloader.downloadArtifactTo(libraries.get(0), datasetPath + "/libraries");
