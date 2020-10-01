@@ -14,7 +14,6 @@ import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
-import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.repository.Authentication;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.repository.RepositoryPolicy;
@@ -22,9 +21,9 @@ import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
 import org.eclipse.aether.transfer.ArtifactNotFoundException;
-import org.eclipse.aether.util.repository.AuthenticationBuilder;
 import org.eclipse.aether.transfer.ArtifactTransferException;
 import org.eclipse.aether.transfer.MetadataNotFoundException;
+import org.eclipse.aether.util.repository.AuthenticationBuilder;
 
 import com.google.common.util.concurrent.RateLimiter;
 
@@ -63,10 +62,10 @@ public class AetherDownloader {
 		  }
 
 	public Artifact downloadArtifactTo(Artifact artifact, String repositoryPath) {
-		if(!artifact.getClassifier().equals("sources")) {
-			Artifact art = new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), "sources", "jar", artifact.getVersion());
-			downloadArtifactTo(art, repositoryPath);
-		}
+		//if (!artifact.getClassifier().equals("sources")) {
+		//	Artifact art = new DefaultArtifact(artifact.getGroupId(), artifact.getArtifactId(), "sources", "jar", artifact.getVersion());
+		//	downloadArtifactTo(art, repositoryPath);
+		//}
 		ArtifactRequest request = new ArtifactRequest();
 		request.setArtifact(artifact);
 		request.addRepository(repository);
