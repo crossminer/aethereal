@@ -16,6 +16,15 @@ public interface MavenCollector {
 	public List<Artifact> collectAvailableVersions(String coordinates);
 
 	/**
+	 * Collect all versions of the given artifact within the range
+	 * [lowerBound, upperBound)
+	 * 
+	 * @param coordinates Version-free coordinates, i.e.
+	 *                    &lt;groupId&gt;:&lt;artifactId&gt;
+	 */
+	public List<Artifact> collectAvailableVersions(String coordinates, String lowerBound, String upperBound);
+
+	/**
 	 * Collect all clients of the given artifact
 	 */
 	public List<Artifact> collectClientsOf(Artifact artifact);

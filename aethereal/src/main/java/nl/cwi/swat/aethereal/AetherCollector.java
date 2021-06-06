@@ -56,8 +56,14 @@ public class AetherCollector implements MavenCollector {
 
 	@Override
 	public List<Artifact> collectAvailableVersions(String coordinates) {
+		return collectAvailableVersions(coordinates, "0", "");
+	}
+
+	@Override
+	public List<Artifact> collectAvailableVersions(String coordinates, String lowerBound, String upperBound) {
 		VersionRangeRequest rangeRequest = new VersionRangeRequest();
-		rangeRequest.setArtifact(new DefaultArtifact(coordinates + ":[0,)"));
+		String rangeQuery = String.format("%s:[%s,%s)", coordinates, lowerBound, upperBound);
+		rangeRequest.setArtifact(new DefaultArtifact(rangeQuery));
 		rangeRequest.addRepository(repository);
 
 		try {
