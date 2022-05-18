@@ -1,8 +1,8 @@
 package nl.cwi.swat.aethereal;
 
 import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -22,7 +22,9 @@ import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonIOException;
 
 import io.usethesource.vallang.IValue;
 import nl.cwi.swat.aethereal.rascal.RascalM3;
@@ -32,6 +34,7 @@ public class LibraryMigration {
 
 	private AetherDownloader dowloader = new AetherDownloader(4);
 	private static final String TEMP_MVN = "temp";
+	private static final String TEMP_OUT = "generate_strings";
 
 	public LibraryMigration() {
 	}
@@ -52,34 +55,37 @@ public class LibraryMigration {
 	public void run() {
 		try (LineIterator it = FileUtils.lineIterator(Paths.get("result_client").toFile(), "UTF-8")) {
 			while (it.hasNext()) {
-				// Each line in the form "source","target"
-				String line = it.nextLine();
-				String[] fields = line.split(",");
-				String c1 = fields[0];
-				String c2 = fields[1];
-				List<String> libRemoved = Arrays.asList(fields[2].split(" "));
-				List<String> libAdded = Arrays.asList(fields[3].split(" "));
-				Set<String> libAddedNoVers = libAdded.stream().map(z -> z.substring(0, z.lastIndexOf(":")))
-						.collect(Collectors.toSet());
-				Set<String> libRemovedNoVers = libRemoved.stream().map(z -> z.substring(0, z.lastIndexOf(":")))
-						.collect(Collectors.toSet());
-				Set<String> intersection = new HashSet<String>(libAddedNoVers);
-				intersection.retainAll(libRemovedNoVers);
-				List<String> libR = libRemoved.stream().filter(z -> !intersection.contains(z.substring(0, z.lastIndexOf(":")))).collect(Collectors.toList());
-				List<String> libA = libAdded.stream().filter(z -> !intersection.contains(z.substring(0, z.lastIndexOf(":")))).collect(Collectors.toList());
-				List<String> libU = libAdded.stream().filter(z -> intersection.contains(z.substring(0, z.lastIndexOf(":")))).collect(Collectors.toList());
-				List<MigrationTuple> migrationTuples = mineLib(
-						libR,
-						c2, c1, ChangeType.REMOVED);
-				migrationTuples.addAll(mineLib(
-						libA,
-						c1, c2, ChangeType.ADDED));
-				migrationTuples.addAll(mineLib(
-						libU,
-						c1, c2, ChangeType.UPDATED));
-				
-				
-				migrationTuples.forEach(z -> System.out.println(z));
+				try {
+					// Each line in the form "source","target"
+					String line = it.nextLine();
+					String[] fields = line.split(",");
+					String c1 = fields[0];
+					String c2 = fields[1];
+					List<String> libRemoved = Arrays.asList(fields[2].split(" "));
+					List<String> libAdded = Arrays.asList(fields[3].split(" "));
+					Set<String> libAddedNoVers = libAdded.stream().map(z -> z.substring(0, z.lastIndexOf(":")))
+							.collect(Collectors.toSet());
+					Set<String> libRemovedNoVers = libRemoved.stream().map(z -> z.substring(0, z.lastIndexOf(":")))
+							.collect(Collectors.toSet());
+					Set<String> intersection = new HashSet<String>(libAddedNoVers);
+					intersection.retainAll(libRemovedNoVers);
+					List<String> libR = libRemoved.stream()
+							.filter(z -> !intersection.contains(z.substring(0, z.lastIndexOf(":"))))
+							.collect(Collectors.toList());
+					List<String> libA = libAdded.stream()
+							.filter(z -> !intersection.contains(z.substring(0, z.lastIndexOf(":"))))
+							.collect(Collectors.toList());
+					List<String> libU = libAdded.stream()
+							.filter(z -> intersection.contains(z.substring(0, z.lastIndexOf(":"))))
+							.collect(Collectors.toList());
+					List<MigrationTuple> migrationTuples = mineLib(libR, c2, c1, ChangeType.REMOVED);
+					migrationTuples.addAll(mineLib(libA, c1, c2, ChangeType.ADDED));
+					migrationTuples.addAll(mineLib(libU, c1, c2, ChangeType.UPDATED));
+					serialize(migrationTuples, c1, c2);
+					System.out.println(String.format("%s vs %s", c1, c2));
+				} catch (Exception e) {
+
+				}
 				break;
 			}
 		} catch (IOException e) {
@@ -87,8 +93,18 @@ public class LibraryMigration {
 		}
 	}
 
-	private List<MigrationTuple> mineLib(List<String> libs, String c1, String c2, ChangeType VER)
-			throws IOException {
+	private void serialize(List<MigrationTuple> migrationTuples, String c1, String c2)
+			throws JsonIOException, IOException {
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		String s = gson.toJson(migrationTuples);
+		try (BufferedWriter bf = new BufferedWriter(
+				new FileWriter(Paths.get(TEMP_OUT, String.format("%s_MYSEP_%s.json", c1, c2)).toFile()))) {
+			bf.write(s);
+			bf.close();
+		}
+	}
+
+	private List<MigrationTuple> mineLib(List<String> libs, String c1, String c2, ChangeType VER) throws IOException {
 		Multimap<String, String> c1MD_MI = getMDMIFromCoordinates(c1);
 		Multimap<String, String> c2MD_MI = getMDMIFromCoordinates(c2);
 		List<MigrationTuple> mts = new ArrayList<MigrationTuple>();
@@ -101,19 +117,22 @@ public class LibraryMigration {
 			for (Entry<String, String> call : callers.entrySet()) {
 				ArrayList<String> c2APIList = new ArrayList<String>(c2MD_MI.get(call.getKey()));
 				ArrayList<String> c1APIList = new ArrayList<String>(c1MD_MI.get(call.getKey()));
-				if (!c2APIList.equals(c1APIList)) {
+				if (!c2APIList.equals(c1APIList) && c2APIList.size() > 0 && c1APIList.size() > 0) {
 					MigrationTuple mt = new MigrationTuple();
 					mt.setAffectedLib(libString);
 					mt.setCalled(call.getValue());
 					mt.setCaller(call.getKey());
-					mt.setV1Body(c1APIList);
 					mt.setCoordinatesV1(c1);
 					mt.setCoordinatesV2(c2);
 					mt.setChange(VER);
-					if (c2MD_MI.containsKey(call.getKey()))
+					if (VER == ChangeType.ADDED || VER == ChangeType.UPDATED) {
+						mt.setV1Body(c1APIList);
 						mt.setV2Body(c2APIList);
-					else
-						mt.setV1Body(new ArrayList<String>());
+					}
+					if (VER == ChangeType.REMOVED) {
+						mt.setV1Body(c2APIList);
+						mt.setV2Body(c1APIList);
+					}
 					mts.add(mt);
 				}
 			}
@@ -153,8 +172,6 @@ public class LibraryMigration {
 				extractorM3.writeM3ModelFile(m3model, dest);
 			}
 			return m3model;
-			// QUI CI VA LA MIA LOGICA
-			// writeFocusFiles(p, m3model);
 		} else
 			throw new IOException("File not Found");
 	}
