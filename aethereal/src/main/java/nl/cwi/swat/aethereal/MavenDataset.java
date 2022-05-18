@@ -17,8 +17,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
@@ -44,7 +42,6 @@ public class MavenDataset {
 	private Set<String> unversionedClients = new HashSet<>();
 	private Multimap<Artifact, Artifact> links = ArrayListMultimap.create();
 	private Table<Artifact, String, String> versionMatrix = HashBasedTable.create();
-	private static final Logger logger = LogManager.getLogger(MavenDataset.class);
 	private List<MigrationInfo> candidates;
 
 	public MavenDataset(String coordinates, String path, MavenCollector collector, AetherDownloader downloader) {
@@ -102,83 +99,83 @@ public class MavenDataset {
 	}
 
 	public void build() throws IOException {
-		logger.info("Building dataset for {}", coordinates);
+		System.out.println("Building dataset for {}"+ coordinates);
 
-		logger.info("Creating output folder {}", datasetPath);
+		System.out.println("Creating output folder {}"+ datasetPath);
 		Files.createDirectories(Paths.get(datasetPath));
 
 		libraries = collector.collectAvailableVersions(coordinates);
-		logger.info("Found {} versions", libraries.size());
+		System.out.println("Found {} versions"+ libraries.size());
 
 		links = collector.collectClientsOf(coordinates);
 		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
-		logger.info("Found {} clients for all versions", links.size());
+		System.out.println("Found {} clients for all versions"+ links.size());
 
 		versionMatrix = computeVersionMatrix();
 		candidates = computeMigratedVersions();
 		writeVersionMatrix();
-		logger.info("Computed the plugin version matrix");
+		System.out.println("Computed the plugin version matrix");
 	}
 
 	public void build(String v1, String v2) throws IOException {
-		logger.info("Building dataset for {}", coordinates);
+		System.out.println("Building dataset for {}"+ coordinates);
 
-		logger.info("Creating output folder {}", datasetPath);
+		System.out.println("Creating output folder {}"+ datasetPath);
 		Files.createDirectories(Paths.get(datasetPath));
 
 		if (collector.checkArtifact(String.format("%s:%s", coordinates, v1)))
 			libraries.add(new DefaultArtifact(String.format("%s:%s", coordinates, v1)));
 		if (collector.checkArtifact(String.format("%s:%s", coordinates, v2)))
 			libraries.add(new DefaultArtifact(String.format("%s:%s", coordinates, v2)));
-		logger.info("Found {} versions", libraries.size());
+		System.out.println("Found {} versions"+ libraries.size());
 
 		collector.collectClientsOf(libraries.get(0)).forEach(z -> links.put(libraries.get(0), z));
 		collector.collectClientsOf(libraries.get(1)).forEach(z -> links.put(libraries.get(1), z));
 		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
 
-		logger.info("Found {} clients for all versions", links.size());
+		System.out.println("Found {} clients for all versions"+ links.size());
 		versionMatrix = computeVersionMatrix();
 		candidates = computeMigratedVersions();
 		writeVersionMatrix();
-		logger.info("Computed the plugin version matrix");
+		System.out.println("Computed the plugin version matrix");
 	}
 
 	public void build(String v1) throws IOException {
-		logger.info("Building dataset for {}", coordinates);
+		System.out.println("Building dataset for {}"+coordinates);
 
-		logger.info("Creating output folder {}", datasetPath);
+		System.out.println("Creating output folder {}"+datasetPath);
 		Files.createDirectories(Paths.get(datasetPath));
 
 		if (collector.checkArtifact(String.format("%s:%s", coordinates, v1)))
 			libraries.add(new DefaultArtifact(String.format("%s:%s", coordinates, v1)));
 
-		logger.info("Found {} versions", libraries.size());
+		System.out.println("Found {} versions"+ libraries.size());
 		collector.collectClientsOf(libraries.get(0)).forEach(z -> links.put(libraries.get(0), z));
 		unversionedClients = links.values().stream().map(Aether::toUnversionedCoordinates).collect(Collectors.toSet());
-		logger.info("Found {} clients for all versions", links.size());
-		logger.info("Computed the plugin version matrix");
+		System.out.println("Found {} clients for all versions"+ links.size());
+		System.out.println("Computed the plugin version matrix");
 	}
 
 	public void printStats() {
-		logger.info("For library {}", coordinates);
-		logger.info("Number of versions: {} [min: {}, max: {}]", libraries.size(), libraries.get(0).getVersion(),
+		System.out.println("For library {}"+ coordinates);
+		System.out.println("Number of versions: {} [min: {}, max: {}]"+ libraries.size()+ libraries.get(0).getVersion()+
 				libraries.get(libraries.size() - 1).getVersion());
 
 		Set<Artifact> clients = links.values().stream().collect(Collectors.toSet());
-		logger.info("Number of clients: {}", clients.size());
-		logger.info("Number of links: {}", links.size());
+		System.out.println("Number of clients: {}"+ clients.size());
+		System.out.println("Number of links: {}"+ links.size());
 
 		List<Artifact> orphans = libraries.stream().filter(a -> links.get(a).isEmpty()).collect(Collectors.toList());
-		logger.info("Orphan libraries: {} [{}]", orphans.size(), orphans);
+		System.out.println("Orphan libraries: {} [{}]"+ orphans.size()+ orphans);
 
 		int cells = libraries.size() * clients.size();
 		int taken = links.size();
-		logger.info("Matrix density: {}", (double) taken / cells);
+		System.out.println("Matrix density: {}"+(double) taken / cells);
 
 		double avg = libraries.stream().mapToInt(a -> links.get(a).size()).average().getAsDouble();
 		int min = libraries.stream().mapToInt(a -> links.get(a).size()).min().getAsInt();
 		int max = libraries.stream().mapToInt(a -> links.get(a).size()).max().getAsInt();
-		logger.info("Clients per library: [avg: {}, min: {}, max: {}]", avg, min, max);
+		System.out.println("Clients per library: [avg: {}, min: {}, max: {}]"+ avg+ min+ max);
 		Map<Artifact, Integer> artifactUsage = links.keys().stream().collect(Collectors.toSet()).stream()
 				.collect(Collectors.toMap(z -> z, z -> links.get(z).size()));
 		// .map(z -> links.get(z).stream().filter(k -> k !=null).count());
@@ -186,12 +183,12 @@ public class MavenDataset {
 				.sorted(Map.Entry.<Artifact, Integer>comparingByValue().reversed())
 				.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (e1, e2) -> e1, LinkedHashMap::new));
 		orderedSrtifactUsage.entrySet()
-				.forEach(z -> logger.info("{} occurs {} times", z.getKey().toString(), z.getValue()));
+				.forEach(z -> System.out.println("{} occurs {} times"+ z.getKey().toString()+ z.getValue()));
 
 		if (candidates != null) {
-			logger.info("Migrated libraries:");
+			System.out.println("Migrated libraries:");
 			candidates.stream().limit(5)
-					.forEach(c -> logger.info("{} migrations between {} and {}", c.count, c.libv1, c.libv2));
+					.forEach(c -> System.out.println("{} migrations between {} and {}"+ c.count+ c.libv1+ c.libv2));
 
 		}
 	}
@@ -253,7 +250,7 @@ public class MavenDataset {
 				writer.newLine();
 			}
 		} catch (IOException e) {
-			logger.error("Couldn't write version matrix", e);
+			System.err.println("Couldn't write version matrix"+ e);
 		}
 	}
 
@@ -276,16 +273,16 @@ public class MavenDataset {
 				for (Artifact client : links.get(library))
 					writer.write(String.format("%s,%s%n", library, client));
 		} catch (IOException e) {
-			logger.error("Couldn't write CSV", e);
+			System.err.println("Couldn't write CSV"+ e);
 		}
 	}
 
 	public void downloadAll() {
 		// Download libraries
 		downloader.downloadAllArtifactsTo(libraries, datasetPath + "/libraries");
-		logger.info("#Candidates: {}", candidates.size());
+		System.out.println("#Candidates: {}"+ candidates.size());
 		for (MigrationInfo artifact : candidates) {
-			logger.info("Download clients of {} {}", artifact.libv1.getVersion(), artifact.libv2.getVersion());
+			System.out.println("Download clients of {} {}"+ artifact.libv1.getVersion()+ artifact.libv2.getVersion());
 			downloader.downloadAllArtifactsTo(artifact.clientsV1,
 					Paths.get(datasetPath, artifact.libv1.getArtifactId() + artifact.libv1.getVersion()).toString());
 			downloader.downloadAllArtifactsTo(artifact.clientsV2,
@@ -301,7 +298,7 @@ public class MavenDataset {
 				for (Artifact client : links.get(library))
 					writer.write(String.format("%s,%s%n", library, client));
 		} catch (IOException e) {
-			logger.error("Couldn't write CSV", e);
+			System.err.println("Couldn't write CSV"+ e);
 		}
 	}
 
@@ -331,7 +328,7 @@ public class MavenDataset {
 						) {
 					String jar = p.toAbsolutePath().toString();
 					String dest = p.toAbsolutePath().toString() + ".m3";
-					logger.info("Building {} M3 model for {}", count.incrementAndGet(), jar);
+					System.out.println("Building {} M3 model for {}"+ count.incrementAndGet()+ jar);
 
 					IValue m3model = null;
 					try {
@@ -343,17 +340,17 @@ public class MavenDataset {
 						}
 						writeFocusFiles(p, m3model);
 					} catch (IOException e) {
-						logger.error(e);
+						System.err.println(e);
 					} catch (Exception e) {
-						logger.error("Serialize M3: {}", e.getMessage());
+						System.err.println("Serialize M3: {}"+ e.getMessage());
 					}
 
 				}
 			}
 		} catch (IOException e) {
-			logger.error(e);
+			System.err.println(e);
 		} catch (Exception e) {
-			logger.error("Serialize M3: {}", e.getMessage());
+			System.err.println("Serialize M3: {}"+ e.getMessage());
 		}
 	}
 
@@ -381,7 +378,7 @@ public class MavenDataset {
 				}
 			}
 		} catch (IOException e) {
-			logger.error(e);
+			System.err.println(e);
 		}
 	}
 
@@ -395,7 +392,7 @@ public class MavenDataset {
 				for (Artifact client : links.get(library))
 					writer.write(String.format("%s,%s%n", library, client));
 		} catch (IOException e) {
-			logger.error("Couldn't write CSV", e);
+			System.err.println("Couldn't write CSV"+ e);
 		}
 	}
 }

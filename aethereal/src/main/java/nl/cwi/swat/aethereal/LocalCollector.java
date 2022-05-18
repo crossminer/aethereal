@@ -18,8 +18,6 @@ import org.apache.commons.compress.compressors.xz.XZCompressorInputStream;
 import org.apache.commons.compress.utils.IOUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
@@ -40,7 +38,6 @@ public class LocalCollector implements MavenCollector {
 	private static final String RELEASE_FILE = DATASET_PATH + "release_all.csv";
 	private static final String REMOTE_DATASET = "https://zenodo.org/record/1489120/files/maven-data.csv.tar.xz";
 
-	private static final Logger logger = LogManager.getLogger(LocalCollector.class);
 
 	public LocalCollector() {
 		retrieveDataset();
@@ -50,7 +47,7 @@ public class LocalCollector implements MavenCollector {
 	public List<Artifact> collectAvailableVersions(String coordinates) {
 		List<Artifact> ret = new ArrayList<>();
 
-		logger.info("Looking for {} versions in {}", coordinates, VERSIONS_FILE);
+		System.out.println("Looking for {} versions in {}"+ coordinates+ VERSIONS_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(VERSIONS_FILE).toFile(), "UTF-8");
 				LineIterator it2 = FileUtils.lineIterator(Paths.get(RELEASE_FILE).toFile(), "UTF-8");) {
 			while (it.hasNext()) {
@@ -83,7 +80,7 @@ public class LocalCollector implements MavenCollector {
 //			}
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read {}", VERSIONS_FILE, e);
+			System.err.println("Couldn't read {}"+VERSIONS_FILE+ e);
 			return Lists.newArrayList();
 		}
 	}
@@ -92,7 +89,7 @@ public class LocalCollector implements MavenCollector {
 	public List<Artifact> collectClientsOf(Artifact artifact) {
 		List<Artifact> ret = new ArrayList<>();
 
-		logger.info("Looking for clients of {} in {}", artifact, LINKS_FILE);
+		System.out.println("Looking for clients of {} in {}"+artifact+ LINKS_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8");
 				LineIterator it2 = FileUtils.lineIterator(Paths.get(RELEASE_FILE).toFile(), "UTF-8");) {
 			while (it.hasNext()) {
@@ -119,7 +116,7 @@ public class LocalCollector implements MavenCollector {
 
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read {}", LINKS_FILE, e);
+			System.err.println("Couldn't read {}"+ LINKS_FILE+ e);
 			return Lists.newArrayList();
 		}
 	}
@@ -128,7 +125,7 @@ public class LocalCollector implements MavenCollector {
 	public Multimap<Artifact, Artifact> collectClientsOf(String coordinates) {
 		Multimap<Artifact, Artifact> ret = ArrayListMultimap.create();
 
-		logger.info("Looking for clients of any version of {} in {}", coordinates, LINKS_FILE);
+		System.out.println("Looking for clients of any version of {} in {}"+ coordinates+ LINKS_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(LINKS_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target","scope"
@@ -145,7 +142,7 @@ public class LocalCollector implements MavenCollector {
 
 			return ret;
 		} catch (IOException e) {
-			logger.error("Couldn't read {}", LINKS_FILE, e);
+			System.err.println("Couldn't read {}"+ LINKS_FILE+ e);
 			return null;
 		}
 	}
@@ -157,17 +154,17 @@ public class LocalCollector implements MavenCollector {
 
 	private void retrieveDataset() {
 		if (datasetExists()) {
-			logger.info("Maven Dependency Graph found. Skipping download.");
+			System.out.println("Maven Dependency Graph found. Skipping download.");
 			return;
 		}
 
-		logger.warn("Couldn't find the Maven Dependency Graph. I will download and extract it for you (~1.1GB).");
+		System.err.println("Couldn't find the Maven Dependency Graph. I will download and extract it for you (~1.1GB).");
 
 		try {
-			logger.warn("Downloading archive from {} to {}", REMOTE_DATASET, DATASET_PATH);
+//			System.err.println("Downloading archive from {} to {}"+ REMOTE_DATASET+ DATASET_PATH);
 			FileUtils.copyURLToFile(new URL(REMOTE_DATASET), new File(DATASET_PATH + "archive.tar.xz"), 5000, 5000);
 
-			logger.warn("Extracting archive locally");
+			System.err.println("Extracting archive locally");
 			try (InputStream fi = Files.newInputStream(Paths.get(DATASET_PATH + "archive.tar.xz"));
 					InputStream bi = new BufferedInputStream(fi);
 					InputStream xzi = new XZCompressorInputStream(bi);
@@ -179,21 +176,21 @@ public class LocalCollector implements MavenCollector {
 						try (OutputStream o = Files.newOutputStream(Paths.get(LINKS_FILE))) {
 							IOUtils.copy(arch, o);
 						} catch (IOException e) {
-							logger.error("Couldn't write destination file", e);
+							System.err.println("Couldn't write destination file"+ e);
 						}
 					} else if (entry.getName().equals("maven-data.csv/next_all.csv")) {
 						try (OutputStream o = Files.newOutputStream(Paths.get(VERSIONS_FILE))) {
 							IOUtils.copy(arch, o);
 						} catch (IOException e) {
-							logger.error("Couldn't write destination file", e);
+							System.err.println("Couldn't write destination file"+ e);
 						}
 					}
 				}
 			} catch (IOException e) {
-				logger.error("Couldn't extract dataset archive", e);
+				System.err.println("Couldn't extract dataset archive"+ e);
 			}
 		} catch (IOException e) {
-			logger.error("Couldn't extract dataset archive", e);
+			System.err.println("Couldn't extract dataset archive"+ e);
 		}
 	}
 
@@ -203,7 +200,7 @@ public class LocalCollector implements MavenCollector {
 
 	@Override
 	public boolean checkArtifact(String coordinate) {
-		logger.info("Looking for {} version in {}", coordinate, VERSIONS_FILE);
+		System.out.println("Looking for {} version in {}"+ coordinate+ VERSIONS_FILE);
 		try (LineIterator it = FileUtils.lineIterator(Paths.get(VERSIONS_FILE).toFile(), "UTF-8")) {
 			while (it.hasNext()) {
 				// Each line in the form "source","target"
@@ -216,7 +213,7 @@ public class LocalCollector implements MavenCollector {
 			}
 			return false;
 		} catch (IOException e) {
-			logger.error("Couldn't read {}", VERSIONS_FILE, e);
+			System.err.println("Couldn't read {}"+ VERSIONS_FILE+ e);
 			return false;
 		}
 	}

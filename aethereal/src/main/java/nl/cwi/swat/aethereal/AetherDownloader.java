@@ -9,8 +9,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.artifact.Artifact;
@@ -34,7 +32,6 @@ public class AetherDownloader {
 
 	private RateLimiter aetherLimiter;
 
-	private static final Logger logger = LogManager.getLogger(AetherDownloader.class);
 
 	public AetherDownloader(int aetherQps) {
 		system = Aether.newRepositorySystem();
@@ -70,7 +67,7 @@ public class AetherDownloader {
 		request.setArtifact(artifact);
 		request.addRepository(repository);
 
-		logger.info("Downloading {}", artifact);
+//		System.out.println("Downloading "+ artifact);
 		// Don't kick me senpai
 		ArtifactResult artifactResult = null;
 		while (artifactResult == null) {
@@ -86,25 +83,25 @@ public class AetherDownloader {
 
 				// Either the artifact doesn't exist on Central, or we got kicked
 				if (root instanceof ArtifactNotFoundException) {
-					logger.warn("Artifact {} not found on Maven Central.", artifact);
+					System.err.println("Artifact {} not found on Maven Central."+ artifact);
 					// We won't get it ever
 					break;
 				} if (root instanceof NoRouteToHostException) {
-					logger.warn("We got kicked from Maven Central. Waiting 30s.", e);
+					System.err.println("We got kicked from Maven Central. Waiting 30s."+ e);
 				} else if (root instanceof MetadataNotFoundException) {
-					logger.warn("Couldn't resolve local metadata for {}.", artifact);
+					System.err.println("Couldn't resolve local metadata for {}."+ artifact);
 					// We won't get it ever
 					break;
 				} else if (root instanceof NoRouteToHostException || root instanceof ArtifactTransferException) {
-					logger.warn("We probably got kicked from Maven Central. Waiting 30s.", e);
+					System.err.println("We probably got kicked from Maven Central. Waiting 30s."+ e);
 					try {
 						Thread.sleep(1000 * 30);
 					} catch (InterruptedException ee) {
-						logger.error(ee);
+						System.err.println(ee);
 						Thread.currentThread().interrupt();
 					}
 				} else {
-					logger.warn("Artifact {} not found on Maven Central.", artifact);
+					System.err.println("Artifact {} not found on Maven Central."+ artifact);
 					break;
 				}
 			}

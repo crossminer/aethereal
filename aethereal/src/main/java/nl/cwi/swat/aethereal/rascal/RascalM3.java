@@ -8,9 +8,9 @@ import java.net.URISyntaxException;
 import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
+import java.util.stream.Collectors;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.rascalmpl.interpreter.Evaluator;
 import org.rascalmpl.interpreter.env.GlobalEnvironment;
 import org.rascalmpl.interpreter.env.ModuleEnvironment;
@@ -35,7 +35,6 @@ import io.usethesource.vallang.io.binary.stream.IValueOutputStream.CompressionRa
 public class RascalM3 {
 	private IValueFactory vf = ValueFactoryFactory.getValueFactory();
 	private Evaluator evaluator = createRascalEvaluator(vf);
-	private static final Logger logger = LogManager.getLogger(RascalM3.class);
 
 	/**
 	 * Build an M3 model for {@code jar} and serialize it in binary form in
@@ -88,13 +87,13 @@ public class RascalM3 {
 			try {
 				loc = vf.sourceLocation("file", "", jar + ".m3");
 			} catch (URISyntaxException e1) {
-				logger.error("");
+				
 			}
 			try (IValueInputStream in = new IValueInputStream(URIResolverRegistry.getInstance().getInputStream(loc), vf,
 					TYPE_STORE_SUPPLIER)) {
 				m3 = in.read();
 			} catch (IOException e) {
-				logger.error(e);
+				
 			}
 
 		}
@@ -114,14 +113,14 @@ public class RascalM3 {
 		try {
 			loc = vf.sourceLocation("file", "", m3path + ".m3");
 		} catch (URISyntaxException e) {
-			logger.error(e);
+
 			return null;
 		}
 		try (IValueInputStream in = new IValueInputStream(URIResolverRegistry.getInstance().getInputStream(loc), vf,
 				TYPE_STORE_SUPPLIER)) {
 			return in.read();
 		} catch (IOException e) {
-			logger.error(e);
+
 			return null;
 		}
 	}
@@ -133,6 +132,22 @@ public class RascalM3 {
 	 */
 	public Multimap<String, String> extractMethodInvocations(IValue m3) {
 		ISet rel = ((ISet) ((IConstructor) m3).asWithKeywordParameters().getParameter("methodInvocation"));
+		return convertISetToMultimap(rel);
+	}
+	
+	
+	public List<String> extractMdethodDeclarations(IValue m3) {
+		
+		Multimap<String, String> dec = extractDeclarations(m3);
+		return dec.keySet().stream().filter(z -> z.contains("java+method")
+				|| z.contains("java+constructor") 
+				|| z.contains("java+initializer")
+				).collect(Collectors.toList());
+
+	}
+	
+	public Multimap<String, String> extractDeclarations(IValue m3) {
+		ISet rel = ((ISet) ((IConstructor) m3).asWithKeywordParameters().getParameter("declarations"));
 		return convertISetToMultimap(rel);
 	}
 	/**

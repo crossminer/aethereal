@@ -12,11 +12,8 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.OptionGroup;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 public class Main {
-	private static final Logger logger = LogManager.getLogger(Main.class);
 
 	public void run(String[] args) {
 		HelpFormatter formatter = new HelpFormatter();
@@ -96,10 +93,10 @@ public class Main {
 				dt.writeM3s();
 			}
 		} catch (ParseException e) {
-			logger.error(e.getMessage());
+			System.err.println(e.getMessage());
 			formatter.printHelp("aethereal", opts);
 		} catch (IOException e) {
-			logger.error(e);
+			System.err.println(e);
 		}
 	}
 
