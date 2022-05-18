@@ -67,7 +67,8 @@ public class AetherDownloader {
 		request.setArtifact(artifact);
 		request.addRepository(repository);
 
-//		System.out.println("Downloading "+ artifact);
+
+		//logger.info("Downloading {}", artifact);
 		// Don't kick me senpai
 		ArtifactResult artifactResult = null;
 		while (artifactResult == null) {

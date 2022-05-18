@@ -86,6 +86,11 @@ public class LocalCollector implements MavenCollector {
 	}
 
 	@Override
+	public List<Artifact> collectAvailableVersions(String coordinates, String lowerBound, String upperBound) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public List<Artifact> collectClientsOf(Artifact artifact) {
 		List<Artifact> ret = new ArrayList<>();
 
