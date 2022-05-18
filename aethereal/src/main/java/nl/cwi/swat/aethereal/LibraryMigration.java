@@ -175,34 +175,4 @@ public class LibraryMigration {
 	private Multimap<String, String> getMDMI(IValue m3model) {
 		return extractorM3.extractMethodInvocations(m3model);
 	}
-
-	private void writeFocusFiles(Path p, IValue m3model) {
-		String focus = p.toAbsolutePath().toString() + ".focus";
-		String mdFocus = p.toAbsolutePath().toString() + ".md.focus";
-		Multimap<String, String> md_mi = extractorM3.extractMethodInvocations(m3model);
-		Multimap<String, String> dec = extractorM3.extractDeclarations(m3model);
-		List<String> temp = dec.keySet().stream().filter(z -> z.contains("java+package")).collect(Collectors.toList());
-		Set<String> KOI = Sets.newHashSet();
-		md_mi.keys().forEach(key -> {
-//			if (md_mi.get(key).stream().filter(z -> !md_mi.containsKey(z)).count() > 8)
-			KOI.add(key);
-		});
-		Path focusFile = Paths.get(focus);
-		Path mdFocusFile = Paths.get(mdFocus);
-		try (BufferedWriter writerMD = Files.newBufferedWriter(mdFocusFile);
-				BufferedWriter writer = Files.newBufferedWriter(focusFile);) {
-			for (String md : KOI) {
-				writerMD.write(
-						md.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", "") + "\n");
-				for (String mi : md_mi.get(md)) {
-
-					writer.write(String.format("%s#%s%n",
-							md.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", ""),
-							mi.replace("|", "").replace("java+constructor:///", "").replace("java+method:///", "")));
-				}
-			}
-		} catch (IOException e) {
-			System.err.println(e);
-		}
-	}
 }
