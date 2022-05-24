@@ -16,6 +16,13 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.LineIterator;
 import org.eclipse.aether.artifact.Artifact;
@@ -33,16 +40,18 @@ public class LibraryMigration {
 	private RascalM3 extractorM3 = new RascalM3();
 
 	private AetherDownloader dowloader = new AetherDownloader(4);
-	private static final String TEMP_MVN = "temp";
-	private static final String TEMP_OUT = "generate_strings";
-
-	public LibraryMigration() {
+	private static String MAVEN_FOLDER = "temp";
+	private static String OUTPUT_FOLDER = "generate_strings";
+	
+	public LibraryMigration(String mavenFolder, String outPutFolder) {
+		MAVEN_FOLDER = mavenFolder;
+		OUTPUT_FOLDER = outPutFolder;
 	}
 
 	private Artifact getArtifact(String coordinates) {
 		String[] coords = coordinates.split(":");
 		DefaultArtifact art = new DefaultArtifact(coords[0], coords[1], null, "jar", coords[2]);
-		return dowloader.downloadArtifactTo(art, TEMP_MVN);
+		return dowloader.downloadArtifactTo(art, MAVEN_FOLDER);
 	}
 
 	private Multimap<String, String> getMDMIFromCoordinates(String coordinates) throws IOException {
@@ -98,7 +107,7 @@ public class LibraryMigration {
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		String s = gson.toJson(migrationTuples);
 		try (BufferedWriter bf = new BufferedWriter(
-				new FileWriter(Paths.get(TEMP_OUT, String.format("%s_MYSEP_%s.json", c1, c2)).toFile()))) {
+				new FileWriter(Paths.get(OUTPUT_FOLDER, String.format("%s_MYSEP_%s.json", c1, c2)).toFile()))) {
 			bf.write(s);
 			bf.close();
 		}
@@ -141,8 +150,25 @@ public class LibraryMigration {
 	}
 
 	public static void main(String[] args) {
-		LibraryMigration lm = new LibraryMigration();
-		lm.run();
+		
+		HelpFormatter formatter = new HelpFormatter();
+
+		Options opts = new Options()
+				.addOption(Option.builder("maven_folder").desc("A temporary folder to store the maven repository").hasArg()
+						.argName("maven_folder").build())
+				.addOption(Option.builder("output_folder").desc("An existing folder to store the json file coming fron the analysis").hasArg()
+						.argName("output_folder").build());
+		CommandLineParser parser = new DefaultParser();
+		CommandLine cmd;
+		try {
+			cmd = parser.parse(opts, args);
+			LibraryMigration lm = new LibraryMigration(cmd.getOptionValue("maven_folder", MAVEN_FOLDER), cmd.getOptionValue("output_folder", OUTPUT_FOLDER));
+			lm.run();
+		} catch (ParseException e) {
+			System.err.println(e.getMessage());
+			formatter.printHelp("aethereal", opts);
+		}
+		
 	}
 
 	public Map<String, String> getMDsContainingMIs(Multimap<String, String> libMD_MI, Set<String> usedMI) {
